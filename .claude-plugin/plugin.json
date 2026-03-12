@@ -1,0 +1,11 @@
+{
+  "name": "peel",
+  "description": "Orchestration skills for automated development lifecycle with multi-model support",
+  "version": "0.1.0",
+  "author": {
+    "name": "peel"
+  },
+  "repository": "https://github.com/peel/peel-orchestrator",
+  "license": "MIT",
+  "keywords": ["orchestration", "multi-model", "lifecycle", "debate", "panel"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "peel-dev",
+  "description": "Development marketplace for peel plugin",
+  "plugins": [
+    {
+      "name": "peel",
+      "description": "Orchestration skills for automated development lifecycle with multi-model support",
+      "version": "0.1.0",
+      "source": "./"
+    }
+  ]
+}
