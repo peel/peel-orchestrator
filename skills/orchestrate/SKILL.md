@@ -254,7 +254,7 @@ Fall through to DEVELOP.
 Invoke ralph-subs-implement with the epic and ralph configuration:
 
 ```
-Skill(skill: "ralph-subs-implement", args: "--epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>")
+Skill(skill: "peel:ralph-subs-implement", args: "--epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>")
 ```
 
 Ralph handles the full implement → review cycle for each bean. Let it run.
@@ -402,7 +402,7 @@ Wait for user confirmation before proceeding.
 
 Invoke docs-evolve automatically:
 ```
-Skill(skill: "docs-evolve", args: "--epic <epic-id>")
+Skill(skill: "peel:docs-evolve", args: "--epic <epic-id>")
 ```
 
 This updates SYSTEM.md, creates ADRs for architectural decisions, and appends to BACKLOG.md.

@@ -1,0 +1,84 @@
+---
+name: bean-decomposition
+description: Bean sizing rules for writing-plans. Determines when a plan task should become a feature with child task beans based on TDD cycle budget.
+---
+
+# Bean Decomposition
+
+## When to Use
+
+Called by writing-plans during "Create Beans from Plan" step. Evaluates each `### Task N:` in the plan and determines whether it should be a single task bean or a feature bean with child tasks.
+
+## Sizing Rule
+
+An automated implementer agent gets ~50 turns per bean. Each TDD cycle (write failing test, implement, verify, commit) costs ~8-10 turns including codebase exploration and build issues.
+
+| TDD cycles in task | Bean type | Structure |
+|---|---|---|
+| 1-2 | task | Single task bean under the epic |
+| 3+ | feature | Feature bean under the epic, with child task beans (1 per behavior) |
+
+## How to Count TDD Cycles
+
+Each distinct testable behavior is one TDD cycle. Count the number of "write a failing test for X" steps in the plan task. If the task says "write tests for X, Y, and Z" — that's 3 cycles, not 1.
+
+## Decomposing into Feature + Tasks
+
+When a plan task needs 3+ cycles:
+
+1. Create a **feature** bean for the group:
+   ```bash
+   beans create "Task N: <group title>" --json -t feature -s todo -p <priority> --parent <epic-id> --tag branch -d "Plan: docs/plans/<filename>.md Task N
+
+   <overall goal from the plan task>"
+   ```
+
+2. Create a **task** bean per behavior under the feature:
+   ```bash
+   beans create "Task Na: <specific behavior>" --json -t task -s todo --parent <feature-id> --tag branch -d "Plan: docs/plans/<filename>.md Task N, step group a
+
+   Files:
+   - <relevant files for this behavior only>
+
+   Steps:
+   1. Write failing test for <behavior>
+   2. Run test, verify it fails
+   3. Implement minimal code to pass
+   4. Run tests, verify they pass
+   5. Commit
+
+   <code snippets from plan relevant to this behavior>"
+   ```
+
+3. Chain children with `--blocked-by` where one behavior builds on another. Independent behaviors need no ordering.
+
+4. Set the feature's own `--blocked-by` to external dependencies (other tasks/features from the plan that must complete first).
+
+## Dependencies
+
+- **Between children of the same feature:** Use `--blocked-by` between task beans when one behavior depends on another's code.
+- **Between features:** The feature bean itself carries `--blocked-by` to external dependencies. When the feature is activated, its ready children become workable.
+- **Cross-feature child dependencies:** Avoid. If task 3a depends on task 2c, make feature 3 depend on feature 2 instead.
+
+## Example
+
+Plan task with 6 TDD cycles:
+> ### Task 2: Union-Find TTL, Cleanup, and Concurrency
+> (write test for cleanup, implement cleanup, write test for Close, implement Close, write test for StartCleanup, implement StartCleanup, write test for ExtendTTL, implement ExtendTTL, write test for MemoryUsage, implement MemoryUsage, write test for memory cap, implement memory cap)
+
+Becomes:
+
+```
+Feature: "Task 2: TTL, Cleanup, and Concurrency"  (parent: epic)
+  Task: "Task 2a: Forest.Cleanup mark-and-sweep"   (parent: feature)
+  Task: "Task 2b: Forest.Close stops goroutine"     (parent: feature)
+  Task: "Task 2c: Forest.StartCleanup periodic"     (parent: feature, blocked-by: 2a)
+  Task: "Task 2d: Forest.ExtendTTL per shard"       (parent: feature)
+  Task: "Task 2e: Forest.MemoryUsage estimate"      (parent: feature)
+  Task: "Task 2f: Memory cap with LRA eviction"     (parent: feature, blocked-by: 2e)
+```
+
+Plan task with 1 TDD cycle stays as-is:
+> ### Task 1: Core Union-Find Node struct
+
+Becomes a single task bean — no feature wrapper needed.
