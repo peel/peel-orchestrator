@@ -142,16 +142,14 @@ Jump to the determined phase section below.
 
 Skip this phase if `--skip-discover` was set OR if `--epic` was provided and child beans already exist.
 
-### Step 1: Read Project Context
+### Step 1: Docs Discovery
 
-Gather context about the topic from the current project:
+Invoke docs-discover to gather project context and identify gaps:
+```
+Skill(skill: "peel:docs-discover", args: "<topic>")
+```
 
-1. Read `docs/` directory — scan for design docs, ADRs, SYSTEM.md, BACKLOG.md
-2. Read `CLAUDE.md` — understand project conventions and architecture
-3. Check existing beans: `beans list --json` — understand what work already exists
-4. Read relevant source files based on the topic (use Glob and Grep to find them)
-
-Compile findings into a structured summary: what exists, what's relevant, what gaps remain.
+This reads existing docs, CLAUDE.md, beans, and relevant source files. It produces a structured summary of what exists, what's relevant, and what gaps remain.
 
 ### Step 2: External Research
 
