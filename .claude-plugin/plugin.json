@@ -5,7 +5,7 @@
   "author": {
     "name": "peel"
   },
-  "repository": "https://github.com/peel/peel-orchestrator",
+  "repository": "https://github.com/peel/peel",
   "license": "MIT",
   "keywords": ["orchestration", "multi-model", "lifecycle", "debate", "panel"]
 }
