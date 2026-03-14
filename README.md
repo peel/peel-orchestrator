@@ -46,6 +46,7 @@ DELIVER
 | `fiddle:feedback` | Append user feedback signal |
 | `fiddle:backlog` | Append idea or debt item |
 | `fiddle:patch-superpowers` | Re-apply beans integration patches to superpowers skills |
+| `fiddle:init` | Configure MCP servers and CLI providers — detects installed tools and writes config |
 
 ## Configuration
 
@@ -86,6 +87,10 @@ Orchestrate and panel use external models for multi-perspective analysis:
 | Gemini | CLI (`gemini`) | `gemini auth` |
 
 Both optional — skills fall back to Claude-only subagents without them.
+
+## Setup
+
+Run `/fiddle:init` to auto-detect and configure external providers. The SessionStart hook will remind you if providers are installed but unconfigured.
 
 ## Hooks
 
