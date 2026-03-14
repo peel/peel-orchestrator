@@ -7,7 +7,7 @@ priority: normal
 tags:
     - branch
 created_at: 2026-03-14T18:37:52Z
-updated_at: 2026-03-14T18:37:52Z
+updated_at: 2026-03-14T19:03:28Z
 parent: fiddle-9qn1
 blocked_by:
     - fiddle-5240
@@ -25,14 +25,14 @@ Steps:
 
 ## Orchestrate Context Check
 
-Before presenting the execution handoff, check for `.claude/orchestrate-events.log` containing `PHASE:DEFINE`.
+Before presenting the execution handoff, check if --from-orchestrate was set in {ARGS}.
 
-If present: STOP here. Do not present execution options. Report: "Plan complete. Beans created. Returning control to orchestrate." Control returns to the orchestrator which will handle execution in the DEVELOP phase.
+If set: STOP here. Do not present execution options. Report: "Plan complete. Beans created. Returning control to orchestrate." Control returns to the caller which will handle execution in the DEVELOP phase.
 
-If absent: proceed to Execution Handoff below.
+If not set: proceed to Execution Handoff below.
 
 4. Read patched file and verify the section exists before Execution Handoff
 
 Acceptance criteria:
 - Orchestrate Context Check section present before Execution Handoff
-- Check logic references .claude/orchestrate-events.log and PHASE:DEFINE
+- Check logic references --from-orchestrate flag (not event log)

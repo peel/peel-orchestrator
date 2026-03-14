@@ -7,7 +7,7 @@ priority: critical
 tags:
     - worktree
 created_at: 2026-03-14T18:36:43Z
-updated_at: 2026-03-14T18:36:43Z
+updated_at: 2026-03-14T19:01:52Z
 parent: fiddle-9qn1
 ---
 
@@ -22,12 +22,12 @@ Steps:
 3. Update Step 1 find command grep pattern to include brainstorming
 4. Update Step 2 to check all three files for patch marker
 5. Add new Step 3 (Patch Brainstorming) with sub-steps 3a-3f:
-   3a: Add ARGS line and --skip-panel flag config table after frontmatter
+   3a: Add ARGS line with --skip-panel and --from-orchestrate flags config table
    3b: Add panel enrichment item to checklist (renumber subsequent items)
    3c: Add panel enrichment node to process flow graph
-   3d: Add orchestrate context check to process flow graph terminal state
-   3e: Replace terminal state text with context-dependent version
-   3f: Replace Implementation subsection with orchestrate-aware version
+   3d: Add --from-orchestrate check to process flow graph terminal state
+   3e: Replace terminal state text with flag-dependent version
+   3f: Replace Implementation subsection with flag-dependent version
    Append [BEANS-PATCHED] marker
 6. Renumber old Steps 3,4,5 to Steps 4,5,6
 7. Commit
@@ -35,4 +35,5 @@ Steps:
 Acceptance criteria:
 - patch-superpowers has Step 3 for brainstorming with all 6 sub-steps
 - Overview mentions three skills
+- --from-orchestrate flag used (not event log detection)
 - Steps renumbered correctly

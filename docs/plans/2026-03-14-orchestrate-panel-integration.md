@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Integrate panel into brainstorming as an enrichment step and make brainstorming/writing-plans orchestrate-aware so they return control when called from the orchestrate DEFINE phase.
+**Goal:** Integrate panel into brainstorming as an enrichment step and make brainstorming/writing-plans orchestrate-aware via `--from-orchestrate` flag so they return control when called from the orchestrate DEFINE phase.
 
-**Architecture:** Patch brainstorming to call panel after proposing approaches and detect orchestrate context for terminal state. Patch writing-plans to skip handoff when in orchestrate context. Update orchestrate DEFINE (remove panel step) and DEVELOP (add execution choice).
+**Architecture:** Patch brainstorming to call panel after proposing approaches and accept `--from-orchestrate` flag for terminal state. Patch writing-plans to skip handoff when `--from-orchestrate` is set. Update orchestrate DEFINE (remove panel step, pass flag) and DEVELOP (add execution choice with config default).
 
-**Tech Stack:** Markdown skill files, bash (event log detection)
+**Tech Stack:** Markdown skill files
 
 ---
 
@@ -59,7 +59,7 @@ Renumber current Steps 3, 4, 5 to Steps 4, 5, 6. Insert new Step 3:
 ````markdown
 ## Step 3: Patch Brainstorming
 
-**Purpose:** Add panel enrichment after approach generation and orchestrate-aware terminal state.
+**Purpose:** Add panel enrichment after approach generation and orchestrate-aware terminal state via `--from-orchestrate` flag.
 
 **3a.** After the frontmatter closing `---`, insert an ARGS line. Replace:
 
@@ -81,6 +81,7 @@ Parse from `{ARGS}`:
 | Flag | Default | Description |
 |---|---|---|
 | `--skip-panel` | false | Skip panel enrichment after proposing approaches |
+| `--from-orchestrate` | false | Return control after design doc instead of chaining to writing-plans |
 ```
 
 **3b.** In the Checklist section, replace item 3:
@@ -126,14 +127,14 @@ Add the node declaration:
 With:
 
 ```
-    "Write design doc" -> "Orchestrate context?" [label="check event log"];
-    "Orchestrate context?" -> "STOP" [label="PHASE:DEFINE in log"];
-    "Orchestrate context?" -> "Invoke writing-plans skill" [label="no log"];
+    "Write design doc" -> "--from-orchestrate?" [label="check flag"];
+    "--from-orchestrate?" -> "STOP" [label="flag set"];
+    "--from-orchestrate?" -> "Invoke writing-plans skill" [label="flag not set"];
 ```
 
 Add node declarations:
 ```
-    "Orchestrate context?" [shape=diamond];
+    "--from-orchestrate?" [shape=diamond];
     "STOP" [shape=doublecircle];
 ```
 
@@ -146,7 +147,7 @@ Add node declarations:
 With:
 
 ```
-**Terminal state:** After writing the design doc, check for `.claude/orchestrate-events.log` containing `PHASE:DEFINE`. If present, STOP — do not invoke writing-plans. Control returns to the orchestrator. If absent (standalone use), invoke writing-plans as the next step. Do NOT invoke frontend-design, mcp-builder, or any other implementation skill.
+**Terminal state:** After writing the design doc, check if `--from-orchestrate` was set in `{ARGS}`. If set, STOP — do not invoke writing-plans. Control returns to the caller. If not set (standalone use), invoke writing-plans as the next step. Do NOT invoke frontend-design, mcp-builder, or any other implementation skill.
 ```
 
 **3f.** In the "After the Design" section, replace the Implementation subsection:
@@ -161,9 +162,8 @@ With:
 
 ```
 **Implementation:**
-- Check for `.claude/orchestrate-events.log` containing `PHASE:DEFINE`
-- If present: STOP here. Do not invoke writing-plans. Control returns to the orchestrator.
-- If absent: invoke the writing-plans skill to create a detailed implementation plan. Do NOT invoke any other skill.
+- If `--from-orchestrate` is set: STOP here. Do not invoke writing-plans. Control returns to the caller.
+- If not set: invoke the writing-plans skill to create a detailed implementation plan. Do NOT invoke any other skill.
 ```
 
 Append marker: `<!-- [BEANS-PATCHED] -->`
@@ -171,14 +171,14 @@ Append marker: `<!-- [BEANS-PATCHED] -->`
 **Step 6: Verify**
 
 Read the patched brainstorming file and confirm:
-- Has ARGS line and `--skip-panel` flag
+- Has ARGS line with `--skip-panel` and `--from-orchestrate` flags
 - Checklist has panel enrichment item
-- Process flow has panel and orchestrate-context nodes
-- Terminal state is context-dependent
+- Process flow has panel and `--from-orchestrate` nodes
+- Terminal state is flag-dependent
 - Has `[BEANS-PATCHED]` marker
 ````
 
-**Step 6: Commit**
+**Step 7: Commit**
 
 ```bash
 git add skills/patch-superpowers/SKILL.md
@@ -198,19 +198,21 @@ Read `skills/patch-superpowers/SKILL.md` to confirm current state after Task 1.
 
 **Step 2: Update writing-plans patch (Step 4, formerly Step 3)**
 
-In Step 4 (Patch Writing-Plans), add a new sub-step **4c** (before current 4b which becomes 4d). Insert after the beans creation section (3a content):
+In Step 4 (Patch Writing-Plans), add a new sub-step **4c** (before current 4b which becomes 4d). Insert after the beans creation section (4a content):
 
 ````markdown
-**4c.** Insert orchestrate-aware handoff before the Execution Handoff section. Add immediately before `## Execution Handoff`:
+**4c.** Insert ARGS parsing and orchestrate-aware handoff. In the plan header section, after any existing ARGS handling, ensure `--from-orchestrate` is parsed from `{ARGS}`.
+
+Insert immediately before `## Execution Handoff`:
 
 ```markdown
 ## Orchestrate Context Check
 
-Before presenting the execution handoff, check for `.claude/orchestrate-events.log` containing `PHASE:DEFINE`.
+Before presenting the execution handoff, check if `--from-orchestrate` was set in `{ARGS}`.
 
-If present: STOP here. Do not present execution options. Report: "Plan complete. Beans created. Returning control to orchestrate." Control returns to the orchestrator which will handle execution in the DEVELOP phase.
+If set: STOP here. Do not present execution options. Report: "Plan complete. Beans created. Returning control to orchestrate." Control returns to the caller which will handle execution in the DEVELOP phase.
 
-If absent: proceed to Execution Handoff below.
+If not set: proceed to Execution Handoff below.
 ```
 ````
 
@@ -224,7 +226,7 @@ Replace:
 ```
 With:
 ```
-- Writing-plans → has "Create Beans from Plan" section with self-contained bean bodies, has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
+- Writing-plans → has "Create Beans from Plan" section with self-contained bean bodies, has "Orchestrate Context Check" with `--from-orchestrate` flag before handoff, handoff has 4 options (including Ralph Beans)
 ```
 
 **Step 4: Commit**
@@ -247,28 +249,28 @@ Read `skills/orchestrate/SKILL.md` lines 191-244.
 
 **Step 2: Replace the entire DEFINE section**
 
-Replace lines 191-244 (from `## DEFINE` to `Fall through to DEVELOP.`) with:
+Replace from `## DEFINE` to `Fall through to DEVELOP.` with:
 
 ```markdown
 ## DEFINE
 
 ### Step 1: Brainstorming
 
-Invoke the brainstorming skill:
+Invoke the brainstorming skill with the orchestrate flag:
 ```
-Skill(skill: "superpowers:brainstorming")
+Skill(skill: "superpowers:brainstorming", args: "--from-orchestrate")
 ```
 
-This explores the user's intent, asks questions, proposes 2-3 approaches, runs panel enrichment (if providers are available), and produces a design doc. The skill detects orchestrate context via the event log and returns control here after writing the design doc. Follow the skill's instructions completely.
+This explores the user's intent, asks questions, proposes 2-3 approaches, runs panel enrichment (if providers are available), and produces a design doc. The `--from-orchestrate` flag causes the skill to return control here after writing the design doc instead of chaining to writing-plans. Follow the skill's instructions completely.
 
 ### Step 2: Implementation Planning
 
-Invoke the writing-plans skill:
+Invoke the writing-plans skill with the orchestrate flag:
 ```
-Skill(skill: "superpowers:writing-plans")
+Skill(skill: "superpowers:writing-plans", args: "--from-orchestrate")
 ```
 
-This creates a detailed implementation plan and decomposes it into beans. The skill detects orchestrate context via the event log and returns control here after bean creation (no execution handoff).
+This creates a detailed implementation plan and decomposes it into beans. The `--from-orchestrate` flag causes the skill to return control here after bean creation instead of presenting execution handoff options.
 
 ### Step 3: Capture Epic ID
 
@@ -293,7 +295,7 @@ Fall through to DEVELOP.
 
 **Step 3: Verify**
 
-Read the file and confirm DEFINE has 4 steps, no separate panel step, and notes about orchestrate context detection.
+Read the file and confirm DEFINE has 4 steps, no separate panel step, both skill calls pass `--from-orchestrate`.
 
 **Step 4: Commit**
 
@@ -307,7 +309,7 @@ git commit -m "feat: simplify orchestrate DEFINE — panel now inside brainstorm
 ### Task 4: Update orchestrate DEVELOP phase — add execution choice
 
 **Files:**
-- Modify: `skills/orchestrate/SKILL.md:246-345`
+- Modify: `skills/orchestrate/SKILL.md` (DEVELOP section)
 
 **Step 1: Read current DEVELOP section**
 
@@ -320,7 +322,7 @@ Insert after `## DEVELOP` and before `### Step 1: Spawn Ralph Subagent`:
 ```markdown
 ### Step 0: Execution Choice
 
-Present execution options to the user:
+Check `orchestrate.conf` for a `develop.execution` setting. If set, use that value. If not set, present options to the user:
 
 ```
 "Beans are ready. How would you like to execute?
@@ -332,7 +334,7 @@ Present execution options to the user:
 3. **Hands-on (manual)** — You implement the beans yourself. Tell me when you're done and I'll continue with holistic review."
 ```
 
-Wait for the user's choice.
+Wait for the user's choice (or use config value).
 
 - **If Ralph Subs:** proceed to Step 1 (Spawn Ralph Subagent) as normal.
 - **If Tmux Team:** proceed to Step 1 but use `ralph-beans-implement` (team variant) instead of `ralph-subs-implement`.
@@ -344,11 +346,21 @@ echo "$(date +%H:%M) execution choice: <choice>" >> .claude/orchestrate-events.l
 ```
 ```
 
-**Step 3: Verify**
+**Step 3: Update Configuration section**
 
-Read the file and confirm DEVELOP has Step 0 with three execution options before Step 1.
+In the Config File section, add to the HCL example:
 
-**Step 4: Commit**
+```hcl
+develop {
+  execution = "ralph-subs"  // or "tmux-team" or "hands-on"
+}
+```
+
+**Step 4: Verify**
+
+Read the file and confirm DEVELOP has Step 0 with three execution options and config override, plus the config file section documents `develop.execution`.
+
+**Step 5: Commit**
 
 ```bash
 git add skills/orchestrate/SKILL.md
@@ -374,11 +386,18 @@ Read the file. If `[BEANS-PATCHED]` marker exists, skip.
 
 **Step 3: Apply all patches from patch-superpowers Step 3**
 
-Apply edits 3a through 3f as documented in the updated patch-superpowers skill.
+Apply edits 3a through 3f as documented in the updated patch-superpowers skill. Key changes:
+- 3a: Add ARGS line with `--skip-panel` and `--from-orchestrate` flags
+- 3b: Add panel enrichment to checklist, renumber items
+- 3c: Add panel node to process flow graph
+- 3d: Add `--from-orchestrate` check to graph terminal state
+- 3e: Replace terminal state text with flag-dependent version
+- 3f: Replace Implementation subsection with flag-dependent version
+- Append `[BEANS-PATCHED]` marker
 
 **Step 4: Verify**
 
-Read the patched file and confirm all changes per patch-superpowers Step 6 verify checklist.
+Read the patched file and confirm all changes per patch-superpowers Step 3 verify checklist.
 
 **Step 5: No commit needed**
 
@@ -403,11 +422,11 @@ Read the file. Check if "Orchestrate Context Check" section already exists. If s
 
 **Step 3: Apply orchestrate-aware handoff patch**
 
-Insert the "Orchestrate Context Check" section before the "Execution Handoff" section, as documented in patch-superpowers Step 4c.
+Insert the "Orchestrate Context Check" section before the "Execution Handoff" section, as documented in patch-superpowers Step 4c. The section checks `--from-orchestrate` in `{ARGS}` and STOPs if set.
 
 **Step 4: Verify**
 
-Read the patched file and confirm the orchestrate context check exists before the execution handoff.
+Read the patched file and confirm the orchestrate context check exists before the execution handoff and references `--from-orchestrate` flag.
 
 **Step 5: No commit needed**
 
