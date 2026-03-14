@@ -6,11 +6,11 @@ Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecy
 
 ## Components
 
-**Orchestrate** (`skills/orchestrate/SKILL.md`) — Top-level lifecycle coordinator. Reads config, chains phases, runs the reaction engine (CI failure, stall, review overflow detection). Delegates to other skills per phase.
+**Orchestrate** (`skills/orchestrate/SKILL.md`) — Top-level lifecycle coordinator. Reads config, chains phases. DEVELOP phase spawns ralph as a background subagent (`Agent()`) for context isolation, waits for `RALPH_STATUS` result, then runs external holistic review. Delegates to other skills per phase.
 
 **Panel** (`skills/panel/SKILL.md`) — Structured multi-model adversarial analysis. Claude, Codex (MCP), and Gemini (CLI) argue independent positions, cross-review, then Claude synthesizes a verdict. Degrades to 2 Claude subagents when no external providers are available.
 
-**Ralph** (`skills/ralph-subs-implement/SKILL.md`, `skills/ralph-beans-implement/SKILL.md`) — Parallel bean implementation. Dispatches implementer subagents (sonnet) in worktrees with tiered review (haiku then sonnet). Two variants: subagent-driven and team-based.
+**Ralph** (`skills/ralph-subs-implement/SKILL.md`, `skills/ralph-beans-implement/SKILL.md`) — Parallel bean implementation. Dispatches implementer subagents (sonnet) in worktrees with tiered review (haiku then sonnet). Two variants: subagent-driven and team-based. Includes reaction checks (CI failure escalation, stall detection, review overflow) in its "Assess and Act" loop. When invoked with `--caller orchestrate`, outputs `RALPH_STATUS: COMPLETE` or `RALPH_STATUS: PARKED` on exit.
 
 **Init** (`skills/init/SKILL.md`) — Provider setup skill. Detects installed binaries (codex, gemini) on PATH, checks existing MCP configuration, asks where to write config (project `.mcp.json` or global `~/.claude.json`), merges codex MCP entry non-destructively.
 
@@ -20,7 +20,7 @@ Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecy
 
 ## Data
 
-**`orchestrate.conf`** (HCL) — Declares which external providers are used per phase, ralph worker counts, review cycle limits, and reaction engine thresholds. Merge order: defaults, config file, CLI flags.
+**`orchestrate.conf`** (HCL) — Declares which external providers are used per phase. All ralph settings (worker counts, review cycle limits, turn budgets, reaction thresholds) live in a single `ralph {}` block. Merge order: defaults, config file, CLI flags.
 
 **`.mcp.json`** (JSON) — Claude Code MCP server configuration. Written by `/fiddle:init`. Contains server entries like `{"codex": {"command": "codex", "args": ["mcp"]}}`. Can live at project level or `~/.claude.json` globally.
 
@@ -46,3 +46,4 @@ None currently identified.
 
 ---
 Last reviewed: 2026-03-14
+
