@@ -1,13 +1,13 @@
 ---
 # fiddle-5240
 title: 'Task 2: Update writing-plans patch in patch-superpowers'
-status: todo
+status: completed
 type: task
 priority: high
 tags:
     - worktree
 created_at: 2026-03-14T18:36:54Z
-updated_at: 2026-03-14T19:02:01Z
+updated_at: 2026-03-14T19:44:03Z
 parent: fiddle-9qn1
 blocked_by:
     - fiddle-fabu

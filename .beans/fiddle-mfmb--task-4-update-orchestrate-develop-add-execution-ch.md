@@ -1,13 +1,13 @@
 ---
 # fiddle-mfmb
 title: 'Task 4: Update orchestrate DEVELOP — add execution choice'
-status: todo
+status: completed
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-14T18:37:14Z
-updated_at: 2026-03-14T19:03:01Z
+updated_at: 2026-03-14T19:37:44Z
 parent: fiddle-9qn1
 ---
 

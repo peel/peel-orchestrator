@@ -1,13 +1,13 @@
 ---
 # fiddle-fabu
 title: 'Task 1: Patch brainstorming — add to patch-superpowers'
-status: todo
+status: completed
 type: task
 priority: critical
 tags:
     - worktree
 created_at: 2026-03-14T18:36:43Z
-updated_at: 2026-03-14T19:01:52Z
+updated_at: 2026-03-14T19:43:10Z
 parent: fiddle-9qn1
 ---
 

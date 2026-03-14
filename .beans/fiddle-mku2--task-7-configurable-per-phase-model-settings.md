@@ -1,13 +1,13 @@
 ---
 # fiddle-mku2
 title: 'Task 7: Configurable per-phase model settings'
-status: todo
+status: completed
 type: task
 priority: high
 tags:
     - worktree
 created_at: 2026-03-14T19:22:02Z
-updated_at: 2026-03-14T19:22:02Z
+updated_at: 2026-03-14T19:53:08Z
 parent: fiddle-9qn1
 ---
 
