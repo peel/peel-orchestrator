@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SessionStart hook: detect installed-but-unconfigured providers and suggest /fiddle:init.
-set -euo pipefail
+set -uo pipefail
 
 # Only act if orchestrate.conf exists in the project
 CONF="${CLAUDE_PROJECT_DIR:-.}/orchestrate.conf"
