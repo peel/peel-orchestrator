@@ -260,21 +260,20 @@ Fall through to DEVELOP.
 
 ### Step 0: Execution Choice
 
-Check `orchestrate.conf` for a `develop.execution` setting. If set, use that value. If not set, present options to the user:
+Check `orchestrate.conf` for a `develop.execution` setting. If set, use that value without prompting. If not set, present options and **wait for the user to pick a number**:
 
 ```
-"Beans are ready. How would you like to execute?
+"Beans are ready. Pick an execution mode (1-4):
 
-1. **Ralph Subs (automated, this session)** — I spawn ralph as a background subagent. Automated implement/review cycles. I'll wait and handle the result.
-
-2. **Tmux Team (automated, parallel)** — Launch ralph with parallel workers in tmux panes via conductor agent.
-
-3. **Hands-on (this session)** — Use superpowers:subagent-driven-development. Fresh subagent per task with code review between tasks. Interactive with human checkpoints.
-
-4. **Hands-on (parallel session)** — Open a new session and use superpowers:executing-plans. Batch execution with checkpoints in a separate session."
+1. Ralph Subs — automated background subagent with implement/review cycles
+2. Tmux Team — parallel workers in tmux panes via conductor agent
+3. Hands-on (this session) — superpowers:subagent-driven-development with human checkpoints
+4. Hands-on (parallel session) — superpowers:executing-plans in a new session"
 ```
 
-Wait for the user's choice (or use config value).
+<HARD-GATE>
+Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume a default. Do NOT auto-select. Wait for their response.
+</HARD-GATE>
 
 - **If Ralph Subs:** proceed to Step 1 (Spawn Ralph Subagent) as normal.
 - **If Tmux Team:** proceed to Step 1 but use `ralph-beans-implement` (team variant) instead of `ralph-subs-implement`.
