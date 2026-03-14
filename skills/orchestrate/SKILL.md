@@ -135,14 +135,7 @@ tmux select-pane -t "$CURRENT_PANE"
 
 If the status script is not available yet (placeholder), skip this step silently.
 
-### Step 4: Initialize Event Log
-
-```bash
-mkdir -p .claude
-echo "$(date +%H:%M) orchestrate started: <topic>" >> .claude/orchestrate-events.log
-```
-
-### Step 5: Determine Phase
+### Step 4: Determine Phase
 
 If `--epic <id>` was provided, detect the current phase from bean state for resumption:
 
@@ -157,9 +150,9 @@ beans list --parent <epic-id> --json
 
 If no `--epic` was provided, start at DISCOVER (or DEFINE if `--skip-discover`).
 
-Log the phase:
+Set the phase tag on the epic bean (if epic exists):
 ```bash
-echo "PHASE:<phase>" >> .claude/orchestrate-events.log
+beans update <epic-id> --tag orchestrate-phase:<phase>
 ```
 
 Jump to the determined phase section below.
@@ -210,9 +203,10 @@ Wait for user confirmation before proceeding.
 ### Step 4: Transition
 
 ```bash
-echo "$(date +%H:%M) DISCOVER complete" >> .claude/orchestrate-events.log
-echo "PHASE:DEFINE" >> .claude/orchestrate-events.log
+beans update <epic-id> --remove-tag orchestrate-phase:DISCOVER --tag orchestrate-phase:DEFINE
 ```
+
+Note: if epic does not yet exist at end of DISCOVER, skip the tag update — DEFINE will set it after epic creation.
 
 Fall through to DEFINE.
 
@@ -250,8 +244,7 @@ Take the most recently created epic ID. Store it for the remaining phases.
 ### Step 4: Transition
 
 ```bash
-echo "$(date +%H:%M) DEFINE complete — $(beans list --parent <epic-id> --json | jq 'length') beans created" >> .claude/orchestrate-events.log
-echo "PHASE:DEVELOP" >> .claude/orchestrate-events.log
+beans update <epic-id> --remove-tag orchestrate-phase:DEFINE --tag orchestrate-phase:DEVELOP
 ```
 
 Fall through to DEVELOP.
@@ -280,16 +273,14 @@ Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume
 - **If Hands-on (this session):** invoke `Skill(skill: "superpowers:subagent-driven-development")`. When execution completes, proceed to Step 3 (Holistic Review).
 - **If Hands-on (parallel session):** guide the user to open a new session and run `superpowers:executing-plans`. Wait for the user to signal completion, then proceed to Step 3 (Holistic Review).
 
-Log:
-```bash
-echo "$(date +%H:%M) execution choice: <choice>" >> .claude/orchestrate-events.log
-```
-
 ### Step 1: Spawn Ralph Subagent
 
-Read the ralph skill file to build the prompt:
-```bash
-cat .claude/skills/ralph-subs-implement/SKILL.md
+Load the ralph skill to build the prompt. Which skill depends on the execution choice from Step 0:
+- **Ralph Subs (option 1):** `fiddle:ralph-subs-implement`
+- **Tmux Team (option 2):** `fiddle:ralph-beans-implement`
+
+```
+Skill(skill: "fiddle:<ralph-variant>")
 ```
 
 Spawn ralph as a background subagent with fresh context:
@@ -317,11 +308,6 @@ Wait for the result:
 result = TaskOutput(task_id: ralph_task.id, block: true, timeout: 3600000)
 ```
 
-Log:
-```bash
-echo "$(date +%H:%M) ralph subagent returned" >> .claude/orchestrate-events.log
-```
-
 ### Step 2: Handle Ralph Result
 
 Parse the `result` from Step 1:
@@ -339,11 +325,6 @@ Present to user:
 - ...
 
 You can: fix the issue and remove needs-attention tag, scrub the bean, or rework the scope."
-```
-
-Log:
-```bash
-echo "$(date +%H:%M) ralph parked — waiting on user for ${N} needs-attention" >> .claude/orchestrate-events.log
 ```
 
 Wait for the user to address the parked beans. When they respond, respawn ralph — loop back to Step 1.
@@ -381,8 +362,7 @@ When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-
 ### Step 4: Transition
 
 ```bash
-echo "$(date +%H:%M) DEVELOP complete" >> .claude/orchestrate-events.log
-echo "PHASE:DELIVER" >> .claude/orchestrate-events.log
+beans update <epic-id> --remove-tag orchestrate-phase:DEVELOP --tag orchestrate-phase:DELIVER
 ```
 
 Fall through to DELIVER.
@@ -433,7 +413,6 @@ Present the docs-evolve results to the user for confirmation. Wait for approval.
 After user confirms documentation:
 ```bash
 beans update <epic-id> --status completed
-echo "$(date +%H:%M) DELIVER complete — epic closed" >> .claude/orchestrate-events.log
 ```
 
 Fall through to CLEANUP.
@@ -449,10 +428,10 @@ tmux list-panes -F '#{pane_id} #{pane_current_command}' | grep orchestrate-statu
 
 If the pane doesn't exist, skip silently.
 
-### Step 2: Remove Event Log
+### Step 2: Clean Phase Tag
 
 ```bash
-rm -f .claude/orchestrate-events.log
+beans update <epic-id> --remove-tag orchestrate-phase:DELIVER
 ```
 
 ### Step 3: Summary
@@ -466,8 +445,7 @@ Report to user:
 ```
 "Epic <epic-id> complete.
 - <N> beans completed
-- <M> beans needs-attention (unresolved)
-- Total duration: <first event timestamp> to now"
+- <M> beans needs-attention (unresolved)"
 ```
 
 Remind the user: "Run `/fiddle:docs-evolve --epic <epic-id>` to update project docs." (if docs-evolve was not already run in DELIVER).
