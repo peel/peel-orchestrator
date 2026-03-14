@@ -2,9 +2,7 @@
 set -euo pipefail
 
 EPIC_ID="${1:?Usage: orchestrate-status.sh <epic-id>}"
-EVENT_LOG=".claude/orchestrate-events.log"
 POLL_INTERVAL=5
-EVENT_TAIL_LINES=8
 
 # Terminal colors
 RESET="\033[0m"
@@ -17,8 +15,12 @@ CYAN="\033[36m"
 WHITE="\033[37m"
 
 get_phase() {
-  if [[ -f "$EVENT_LOG" ]]; then
-    grep "^PHASE:" "$EVENT_LOG" | tail -1 | cut -d: -f2
+  local tags
+  tags=$(beans show "$EPIC_ID" --json 2>/dev/null | jq -r '(.tags // [])[]' 2>/dev/null)
+  local phase
+  phase=$(echo "$tags" | grep '^orchestrate-phase:' | tail -1 | cut -d: -f2)
+  if [[ -n "$phase" ]]; then
+    echo "$phase"
   else
     echo "SETUP"
   fi
@@ -166,12 +168,6 @@ render() {
   echo ""
   echo ""
 
-  # Event log tail
-  if [[ -f "$EVENT_LOG" ]]; then
-    grep -v "^PHASE:" "$EVENT_LOG" | tail -n "$EVENT_TAIL_LINES" | while IFS= read -r line; do
-      printf "  ${DIM}%s${RESET}\n" "$line"
-    done
-  fi
 }
 
 # Main loop
