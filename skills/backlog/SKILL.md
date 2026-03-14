@@ -1,5 +1,5 @@
 ---
-name: backlog
+name: fiddle:backlog
 description: Append an idea, tech debt item, or someday/maybe to docs/BACKLOG.md. Quick capture for things that aren't beans yet.
 disable-model-invocation: true
 argument-hint: <item> — idea, debt, or observation to capture

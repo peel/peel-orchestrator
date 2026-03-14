@@ -1,5 +1,5 @@
 ---
-name: ralph-beans-implement
+name: fiddle:ralph-beans-implement
 description: Execute beans tasks using agent teams with ralph loop pattern. Implementers and review coordinators are teammates; coordinators encapsulate the full tier-1/tier-2 review pipeline and report a single verdict. Supports configurable parallelism.
 disable-model-invocation: true
 argument-hint: [--epic <id>] [--workers 2] [--max-review-cycles 3] [--max-impl-turns 50] [--max-review-turns 30]

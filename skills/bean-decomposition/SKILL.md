@@ -1,5 +1,5 @@
 ---
-name: bean-decomposition
+name: fiddle:bean-decomposition
 description: Bean sizing rules for writing-plans. Determines when a plan task should become a feature with child task beans based on TDD cycle budget.
 ---
 

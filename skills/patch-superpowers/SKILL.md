@@ -1,5 +1,5 @@
 ---
-name: patch-superpowers
+name: fiddle:patch-superpowers
 description: Use after updating the superpowers plugin to re-apply beans integration patches to writing-plans and executing-plans skills.
 ---
 
@@ -97,7 +97,7 @@ Insert before `**Which approach?"**`:
 ```
 **3. Beans Batch (separate session)** - Open new session with executing-plans, batch execution using beans for state tracking
 
-**4. Ralph Beans (hands-off)** - Run `/ralph-beans-implement --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
+**4. Ralph Beans (hands-off)** - Run `/fiddle:ralph-beans-implement --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
 ```
 
 After the `**If Parallel Session chosen:**` block, add:
@@ -109,7 +109,7 @@ After the `**If Parallel Session chosen:**` block, add:
 
 **If Ralph Beans chosen:**
 - Guide them to open new session (optionally in worktree)
-- Run `/ralph-beans-implement --epic <epic-id>` with appropriate flags (e.g., `--workers 2`)
+- Run `/fiddle:ralph-beans-implement --epic <epic-id>` with appropriate flags (e.g., `--workers 2`)
 - The `--epic` flag scopes execution to only beans under this epic — safe when other beans exist
 - Beans are self-contained — agents work from bean bodies directly, no plan file needed
 - Fully automated: implement → review → fix cycles until all beans complete

@@ -1,7 +1,6 @@
 ---
-name: docs-evolve
+name: fiddle:docs-evolve
 description: Post-ship update of project docs. Reads completed beans and recent diffs to update SYSTEM.md, create ADRs for significant decisions, flag product docs that may need attention, and append discovered debt/ideas to BACKLOG.md. Run after completing an epic or significant feature.
-disable-model-invocation: true
 argument-hint: [--epic <id>] [--diff] [--dry-run]
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: feedback
+name: fiddle:feedback
 description: Append a user feedback entry to docs/product/FEEDBACK.md. Quick capture of what users said, asked, or struggled with.
 disable-model-invocation: true
 argument-hint: <feedback> — what the user said or experienced
