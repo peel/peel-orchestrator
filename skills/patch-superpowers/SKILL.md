@@ -207,7 +207,19 @@ git commit -m "Add beans for <epic-name>"
 **Restart safety:** Execution is interrupt-safe. On restart, `in-progress` beans are picked up first (resuming interrupted work), then `todo` beans. Completed beans are skipped. No manual cleanup needed after an interruption.
 ```
 
-**4b.** Update the Execution Handoff:
+**4b.** Insert orchestrate-aware handoff before the Execution Handoff section. Add immediately before `## Execution Handoff`:
+
+```markdown
+## Orchestrate Context Check
+
+Before presenting the execution handoff, check if `--from-orchestrate` was set in `{ARGS}`.
+
+If set: STOP here. Do not present execution options. Report: "Plan complete. Beans created. Returning control to orchestrate." Control returns to the caller which will handle execution in the DEVELOP phase.
+
+If not set: proceed to Execution Handoff below.
+```
+
+**4c.** Update the Execution Handoff:
 
 Replace `Two execution options` with `Beans created. Four execution options`.
 
@@ -280,7 +292,7 @@ Append marker: `<!-- [BEANS-PATCHED] -->`
 
 Read all three patched files and confirm:
 - Brainstorming → has ARGS line with `--skip-panel` and `--from-orchestrate` flags, checklist has panel enrichment item, process flow has panel and `--from-orchestrate` nodes, terminal state is flag-dependent
-- Writing-plans → has "Create Beans from Plan" section with self-contained bean bodies, handoff has 4 options (including Ralph Beans)
+- Writing-plans → has "Create Beans from Plan" section with self-contained bean bodies, has "Orchestrate Context Check" with `--from-orchestrate` flag before handoff, handoff has 4 options (including Ralph Beans)
 - Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets
 - All three have `[BEANS-PATCHED]` marker
 
