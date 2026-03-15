@@ -2,7 +2,7 @@
 name: fiddle:ralph-subs-implement
 description: Execute beans tasks using subagents with ralph loop pattern. Implementers and review coordinators are background subagents; coordinators encapsulate the full tier-1/tier-2 review pipeline and return a verdict. Supports configurable parallelism.
 disable-model-invocation: true
-argument-hint: [--epic <id>] [--workers 2] [--max-review-cycles 3] [--max-impl-turns 50] [--max-review-turns 30] [--ci-max-retries 3] [--stall-timeout-min 15] [--stall-max-respawns 2] [--caller <name>]
+argument-hint: [--epic <id>] [--workers 10] [--max-review-cycles 10] [--max-impl-turns 100] [--max-review-turns 100] [--ci-max-retries 3] [--stall-timeout-min 15] [--stall-max-respawns 2] [--caller <name>]
 ---
 
 # Ralph Beans Implementation (Subagent Variant)
@@ -13,10 +13,10 @@ Stateless orchestrator. All state lives in `beans` CLI. The lead derives what to
 
 Flags (all optional, order-independent):
 - `--epic <id>` — scope to beans under this epic (uses `beans list --parent <id>`)
-- `--workers N` (default: 2) — parallel beans in-flight
-- `--max-review-cycles N` (default: 3) — max cycles before abandoning
-- `--max-impl-turns N` (default: 50) — max agent turns per implementer spawn
-- `--max-review-turns N` (default: 30) — max agent turns per review coordinator
+- `--workers N` (default: 10) — parallel beans in-flight
+- `--max-review-cycles N` (default: 10) — max cycles before abandoning
+- `--max-impl-turns N` (default: 100) — max agent turns per implementer spawn
+- `--max-review-turns N` (default: 100) — max agent turns per review coordinator
 - `--ci-max-retries N` (default: 3) — CI failures before tagging `needs-attention`
 - `--stall-timeout-min N` (default: 15) — minutes of inactivity before respawn/escalation
 - `--stall-max-respawns N` (default: 2) — stall respawns before tagging `needs-attention`

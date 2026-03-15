@@ -2,7 +2,7 @@
 name: fiddle:ralph-beans-implement
 description: Execute beans tasks using agent teams with ralph loop pattern. Implementers and review coordinators are teammates; coordinators encapsulate the full tier-1/tier-2 review pipeline and report a single verdict. Supports configurable parallelism.
 disable-model-invocation: true
-argument-hint: [--epic <id>] [--workers 2] [--max-review-cycles 3] [--max-impl-turns 50] [--max-review-turns 30]
+argument-hint: [--epic <id>] [--workers 10] [--max-review-cycles 10] [--max-impl-turns 100] [--max-review-turns 100]
 ---
 
 # Ralph Beans Implementation
@@ -13,10 +13,10 @@ Stateless orchestrator. All state lives in `beans` CLI. The lead derives what to
 
 Flags (all optional, order-independent):
 - `--epic <id>` — scope to beans under this epic (uses `beans list --parent <id>`)
-- `--workers N` (default: 2) — parallel beans in-flight
-- `--max-review-cycles N` (default: 3) — max cycles before abandoning
-- `--max-impl-turns N` (default: 50) — max agent turns per implementer spawn
-- `--max-review-turns N` (default: 30) — max agent turns per review coordinator
+- `--workers N` (default: 10) — parallel beans in-flight
+- `--max-review-cycles N` (default: 10) — max cycles before abandoning
+- `--max-impl-turns N` (default: 100) — max agent turns per implementer spawn
+- `--max-review-turns N` (default: 100) — max agent turns per review coordinator
 
 **`BEANS_LIST` command:** When `--epic <id>` is set, every `beans list` invocation MUST include `--parent <id>`.
 - With `--epic cv0e`: `beans list --parent cv0e --json`
