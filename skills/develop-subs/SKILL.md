@@ -148,6 +148,8 @@ All agents are subagents (no `team_name`). The coordinator internally spawns rev
 
 ### Implementer Spawn
 
+**NEVER inline or simplify role templates.** Always Read the actual file and substitute placeholders. Do not paraphrase, abbreviate, or rewrite templates to save tokens — agents follow instructions literally and skip steps when prompts are simplified.
+
 1. Read `.claude/skills/develop-subs/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
 2. If worktree assigned: omit the `## Git Coordination` section (between `<!-- CONDITIONAL -->` markers)
 3. For fix cycles, append issues under `## Review Issues to Address`
@@ -166,6 +168,8 @@ beans update {id} --tag role:implement --tag bg-task:{task_id}
 ```
 
 ### Review Coordinator Spawn
+
+**NEVER inline or simplify role templates.** Always Read the actual file and substitute placeholders.
 
 **Cycle 1:** Auto-select ALL domain agents relevant to the bean. Always include `baseline`.
 **Cycle 2+:** Use only the reviewers from the bean's `flagged-by:*` tag (set by previous verdict).

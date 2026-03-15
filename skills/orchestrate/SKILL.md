@@ -335,7 +335,7 @@ Present to user:
 You can: fix the issue and remove needs-attention tag, scrub the bean, or rework the scope."
 ```
 
-Wait for the user to address the parked beans. When they respond, respawn ralph — loop back to Step 1.
+Wait for the user to address the parked beans. When they respond, respawn ralph — loop back to Step 1. **Re-use the identical SKILL.md prompt from the first spawn** — do NOT write a custom or simplified prompt. Ralph discovers current state from `beans list`.
 
 **Case 3 — Empty result, error, or max_turns exhausted:**
 Check bean state:
@@ -345,7 +345,7 @@ beans list --parent <epic-id> --json
 
 Present bean summary to user (completed, in-progress, todo, needs-attention counts). Ask: "Ralph's context was exhausted. Respawn to continue, or proceed to holistic review with current state?"
 
-- If user says respawn → loop to Step 1
+- If user says respawn → loop to Step 1. **Re-use the identical SKILL.md prompt** — do NOT write a simplified prompt.
 - If user says proceed → Step 3
 
 ### Step 3: Holistic Review
@@ -365,7 +365,7 @@ When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-
    Dispatch all providers in parallel. Collect results in **unattended** mode (first-past-the-post).
 
 2. If no provider is available, perform the holistic review yourself: read the design doc, review the full diff, and compare.
-3. If holistic review creates fix beans → log "back to DEVELOP", loop to Step 1
+3. If holistic review creates fix beans → log "back to DEVELOP", loop to Step 1. **Re-use the identical SKILL.md prompt from the original spawn** — Ralph discovers new beans via `beans list`. Do NOT write a custom prompt for fix cycles.
 4. If clean → transition to DELIVER
 
 ### Step 4: Transition
