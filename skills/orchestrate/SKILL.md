@@ -174,21 +174,17 @@ This reads existing docs, CLAUDE.md, beans, and relevant source files. It produc
 
 If DISCOVER providers are configured (default: codex):
 
-For each provider, call its MCP tool directly:
+Read `roles/provider-dispatch.md` (resolve relative to this skill's base directory: `../ralph-subs-implement/roles/provider-dispatch.md`). Follow the dispatch procedure for each provider in the discover phase list with these template values:
 
-**Codex:**
-```
-mcp__codex__codex(
-  prompt: "Topic: <topic>. Project context: <summary from Step 1>. Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
-)
-```
+- `PROVIDER_ROLE` = "Research analyst"
+- `TOPIC` = `<topic>`
+- `INSTRUCTIONS` = "Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
 
-**Gemini:** Spawn via Bash:
-```bash
-gemini -o json --approval-mode auto_edit "Topic: <topic>. Project context: <summary from Step 1>. Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
-```
+Also read `roles/provider-context.md` (`../ralph-subs-implement/roles/provider-context.md`) for prompt construction.
 
-If a provider's MCP server or CLI is not available, skip it. Claude proceeds with internal knowledge only.
+Dispatch all providers in parallel. Collect results in **attended** mode.
+
+If no provider CLI is available, skip and proceed with Claude's internal knowledge only.
 
 ### Step 3: Socratic Dialogue
 
@@ -275,13 +271,11 @@ Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume
 
 ### Step 1: Spawn Ralph Subagent
 
-Load the ralph skill to build the prompt. Which skill depends on the execution choice from Step 0:
-- **Ralph Subs (option 1):** `fiddle:ralph-subs-implement`
-- **Tmux Team (option 2):** `fiddle:ralph-beans-implement`
+Read the ralph skill file to build the prompt. Which skill depends on the execution choice from Step 0:
+- **Ralph Subs (option 1):** `ralph-subs-implement/SKILL.md`
+- **Tmux Team (option 2):** `ralph-beans-implement/SKILL.md`
 
-```
-Skill(skill: "fiddle:<ralph-variant>")
-```
+Use the Read tool to load the SKILL.md file. The file is in a sibling directory relative to this skill's base directory: `../<ralph-variant>/SKILL.md` (resolve against the "Base directory for this skill" shown when this skill was loaded). Do NOT use the Skill tool — these skills have `disable-model-invocation` since they are agent prompts, not directly invocable skills.
 
 Spawn ralph as a background subagent with fresh context:
 
@@ -301,7 +295,7 @@ ralph_task = Agent(
 )
 ```
 
-For `critical` and `high` priority beans: include in the prompt an instruction for the review coordinator to additionally request a code review from configured DEVELOP providers via their MCP tools (codex: `mcp__codex__codex`, gemini: via CLI).
+For `critical` and `high` priority beans: include in the prompt an instruction for the review coordinator to additionally request a code review from configured DEVELOP providers via the provider-dispatch procedure.
 
 Wait for the result:
 ```
@@ -344,16 +338,17 @@ Present bean summary to user (completed, in-progress, todo, needs-attention coun
 
 When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-progress`):
 
-1. Run the external holistic review. If DEVELOP holistic providers are configured, request comparison via their MCP tools:
+1. Run the external holistic review. If DEVELOP holistic providers are configured, read `roles/provider-dispatch.md` (`../ralph-subs-implement/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the develop_holistic phase list with these template values:
 
-   **Codex:**
-   ```
-   mcp__codex__codex(
-     prompt: "Design doc: <design doc content>. Full diff: <git diff main...epic/<epic-id>>. Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
-   )
-   ```
+   - `PROVIDER_ROLE` = "Holistic reviewer"
+   - `TOPIC` = "Epic holistic review for `<epic-id>`"
+   - `DESIGN_DOC` = `<design doc content>`
+   - `DIFF` = `<git diff main...epic/<epic-id>>`
+   - `INSTRUCTIONS` = "Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
 
-   **Gemini:** Spawn via Bash with the same prompt.
+   Also read `roles/provider-context.md` (`../ralph-subs-implement/roles/provider-context.md`) for prompt construction.
+
+   Dispatch all providers in parallel. Collect results in **unattended** mode (first-past-the-post).
 
 2. If no provider is available, perform the holistic review yourself: read the design doc, review the full diff, and compare.
 3. If holistic review creates fix beans → log "back to DEVELOP", loop to Step 1
@@ -371,18 +366,19 @@ Fall through to DELIVER.
 
 ### Step 1: Drift Analysis
 
-If DELIVER providers are configured (default: codex), request drift analysis via their MCP tools:
+If DELIVER providers are configured (default: codex), read `roles/provider-dispatch.md` (`../ralph-subs-implement/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the deliver phase list with these template values:
 
-**Codex:**
-```
-mcp__codex__codex(
-  prompt: "Design doc: <read the design doc referenced in the epic bean body>. Full diff: <git diff main...epic/<epic-id> or git diff main...HEAD>. Analyze: did the implementation match the design? Flag any drift, missing features, scope creep, or unintended changes."
-)
-```
+- `PROVIDER_ROLE` = "Drift analyst"
+- `TOPIC` = "Design vs implementation drift for `<epic-id>`"
+- `DESIGN_DOC` = `<read the design doc referenced in the epic bean body>`
+- `DIFF` = `<git diff main...epic/<epic-id> or git diff main...HEAD>`
+- `INSTRUCTIONS` = "Analyze: did the implementation match the design? Flag any drift, missing features, scope creep, or unintended changes."
 
-**Gemini:** Spawn via Bash with the same prompt.
+Also read `roles/provider-context.md` (`../ralph-subs-implement/roles/provider-context.md`) for prompt construction.
 
-If no provider is available, perform the drift analysis yourself: read the design doc, review the full diff, and compare.
+Dispatch all providers in parallel. Collect results in **attended** mode.
+
+If no provider CLI is available, perform the drift analysis yourself: read the design doc, review the full diff, and compare.
 
 Present the drift analysis to the user:
 ```
