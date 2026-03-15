@@ -151,6 +151,16 @@ Produce exactly this structure:
 ```markdown
 ## Debate: <topic>
 
+### Approaches
+
+**Approach 1: <name>**
+<full approach text as provided by caller or generated in standalone mode>
+
+**Approach 2: <name>**
+<full approach text>
+
+[...for each approach]
+
 ### Consensus
 - [Points where all participants agree]
 
@@ -185,6 +195,6 @@ Before outputting your synthesis, verify each of these. If any check fails, go b
 
 3. **Did I skip degraded mode when providers were unavailable?** If no external provider binaries were found on PATH, you MUST have spawned 2 Claude subagents. If you just wrote a pros/cons list yourself, go back and spawn the agents.
 
-4. **Does the output have all four sections?** Consensus, Majority, No consensus, Recommendation — all four MUST be present. Use "None" for empty sections.
+4. **Does the output have all five sections?** Approaches, Consensus, Majority, No consensus, Recommendation — all five MUST be present. Use "None" for empty sections.
 
 5. **Did I run the requested number of rounds?** Count the actual cross-review rounds. If fewer than `--rounds`, run the missing rounds.
