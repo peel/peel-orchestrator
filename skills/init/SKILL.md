@@ -1,32 +1,24 @@
 ---
 name: fiddle:init
-description: Configure MCP servers and CLI providers for fiddle's multi-model orchestration. Detects installed tools and writes config.
+description: Verify CLI providers for fiddle's multi-model orchestration. Detects installed tools and checks config.
 disable-model-invocation: true
-argument-hint: [--target project|global]
 ---
 
 # Init
 
-Set up external providers for fiddle. Detects installed tools, checks existing config, and writes MCP entries.
-
-ARGUMENTS: {ARGS}
+Verify external providers for fiddle. Detects installed tools and checks orchestrate.conf.
 
 ## Process
 
 ### Step 1: Detect providers
 
-Read `orchestrate.conf` (in project root or `.claude/orchestrate.conf`) to find declared providers. If not found, use defaults: codex, gemini.
+Read `orchestrate.conf` (in project root or `.claude/orchestrate.conf`) to find declared providers. Extract unique provider names from provider definition blocks (e.g. `codex { command = ... }` entries inside the top-level `providers` block). If the file is not found, use defaults: codex, gemini.
 
 For each provider, check availability:
 
-**Codex:**
 ```bash
-which codex
-```
-
-**Gemini:**
-```bash
-which gemini
+command -v codex
+command -v gemini
 ```
 
 Report findings to the user:
@@ -42,81 +34,43 @@ No external providers found on PATH. Install codex or gemini to enable multi-mod
 Fiddle works without them — skills fall back to Claude-only subagents.
 ```
 
-### Step 2: Check existing configuration
+### Step 2: Verify config
 
-For each installed provider that needs MCP (currently just codex), check if already configured:
-
-```bash
-# Check project-level
-jq -e '.mcpServers.codex' .mcp.json 2>/dev/null
-
-# Check global
-jq -e '.mcpServers.codex' ~/.claude.json 2>/dev/null
-```
-
-If already configured, report and skip:
-```
-codex MCP: already configured in .mcp.json ✓
-```
-
-If all installed providers are configured, report "All providers configured" and stop.
-
-### Step 3: Choose target
-
-Parse `--target` from `{ARGS}` if provided. Otherwise, ask the user:
+For each installed provider, check that `orchestrate.conf` has a `command` and `flags` block inside the `providers` section. Example of a valid block:
 
 ```
-Where should the MCP config be written?
-1. Project .mcp.json (scoped to this project, can be checked into git)
-2. Global ~/.claude.json (available across all projects)
-```
-
-Use AskUserQuestion with these two options.
-
-### Step 4: Write configuration
-
-Read the target file if it exists. If it doesn't exist, start with `{}`.
-
-For codex, merge this entry into `mcpServers`:
-
-```json
-{
-  "mcpServers": {
-    "codex": {
-      "command": "codex",
-      "args": ["mcp"]
-    }
-  }
+codex {
+  command = "codex exec"
+  flags   = "--json -s read-only"
 }
 ```
 
-Use jq to merge without clobbering existing entries:
-
-```bash
-# If target file exists, merge. Otherwise create.
-TARGET="<chosen file>"
-if [[ -f "$TARGET" ]]; then
-  jq '.mcpServers.codex = {"command": "codex", "args": ["mcp"]}' "$TARGET" > "$TARGET.tmp" && mv "$TARGET.tmp" "$TARGET"
-else
-  echo '{"mcpServers":{"codex":{"command":"codex","args":["mcp"]}}}' | jq . > "$TARGET"
-fi
+If a provider binary is installed but has no config block, warn and suggest adding it:
+```
+⚠ codex is installed but has no config block in orchestrate.conf.
+  Add a block like:
+    codex {
+      command = "codex exec"
+      flags   = "--json"
+    }
 ```
 
-Report what was written.
+If all installed providers have valid config blocks, report success:
+```
+All providers configured ✓
+```
 
-### Step 5: Auth reminders
+### Step 3: Auth reminders
 
-For each configured provider, remind about authentication:
+For each installed provider, remind about authentication:
 
 ```
-Setup complete. Auth reminders:
+Auth reminders:
   codex: run `codex --login` to authenticate
-  gemini: run `gemini auth` to authenticate (if installed)
+  gemini: run `gemini auth` to authenticate
 ```
 
 ## Rules
 
-- Never overwrite existing MCP server entries — merge only.
-- Gemini uses CLI, not MCP. Init only checks it's on PATH and reminds about auth.
+- Only checks CLI availability and config — does not write config files.
 - Idempotent — re-running when configured is a no-op.
-- If jq is not available, write the JSON directly with the Write tool instead of shell commands.
