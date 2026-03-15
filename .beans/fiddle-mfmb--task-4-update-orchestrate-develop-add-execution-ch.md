@@ -20,12 +20,12 @@ Steps:
 1. Read skills/orchestrate/SKILL.md from ## DEVELOP
 2. Insert Step 0 (Execution Choice) between ## DEVELOP and ### Step 1: Spawn Ralph Subagent
 3. Step 0 checks orchestrate.conf for develop.execution setting first, falls back to interactive prompt:
-   - Ralph Subs (automated, this session) — spawn ralph-subs-implement as background subagent
-   - Tmux Team (automated, parallel) — launch ralph-beans-implement with workers in tmux
+   - Ralph Subs (automated, this session) — spawn develop-subs as background subagent
+   - Tmux Team (automated, parallel) — launch develop-team with workers in tmux
    - Hands-on (manual) — user implements beans, signals when done, skip to holistic review
 4. Wait for user choice (or use config value), log choice to event log
-5. Route: Ralph Subs -> Step 1 as normal. Tmux Team -> Step 1 with ralph-beans-implement. Hands-on -> skip to Step 3 (Holistic Review)
-6. Update Config File section HCL example to include develop { execution = "ralph-subs" }
+5. Route: Ralph Subs -> Step 1 as normal. Tmux Team -> Step 1 with develop-team. Hands-on -> skip to Step 3 (Holistic Review)
+6. Update Config File section HCL example to include develop { execution = "develop-subs" }
 7. Verify the section reads correctly
 8. Commit
 

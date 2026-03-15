@@ -1,13 +1,13 @@
 ---
 # fiddle-19g1
 title: 'Task 4: Update panel/SKILL.md to use dispatch procedure'
-status: todo
+status: completed
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-15T13:48:15Z
-updated_at: 2026-03-15T13:49:27Z
+updated_at: 2026-03-15T14:39:04Z
 parent: fiddle-jj30
 blocked_by:
     - fiddle-j7a1

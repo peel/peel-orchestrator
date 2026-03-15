@@ -337,7 +337,7 @@ Check `orchestrate.conf` for a `develop.execution` setting. If set, use that val
 Wait for the user's choice (or use config value).
 
 - **If Ralph Subs:** proceed to Step 1 (Spawn Ralph Subagent) as normal.
-- **If Tmux Team:** proceed to Step 1 but use `ralph-beans-implement` (team variant) instead of `ralph-subs-implement`.
+- **If Tmux Team:** proceed to Step 1 but use `develop-team` (team variant) instead of `develop-subs`.
 - **If Hands-on:** log the choice, then wait for the user to signal completion. When they do, skip to Step 3 (Holistic Review).
 
 Log:
@@ -352,7 +352,7 @@ In the Config File section, add to the HCL example:
 
 ```hcl
 develop {
-  execution = "ralph-subs"  // or "tmux-team" or "hands-on"
+  execution = "develop-subs"  // or "tmux-team" or "hands-on"
 }
 ```
 
@@ -439,10 +439,10 @@ Cached file — not version controlled.
 **Files:**
 - Modify: `skills/orchestrate/SKILL.md` (Configuration section + DEVELOP ralph spawn)
 - Modify: `skills/panel/SKILL.md` (model references in Agent spawns)
-- Modify: `skills/ralph-subs-implement/SKILL.md` (implementer + review model references)
-- Modify: `skills/ralph-subs-implement/roles/review-coordinator.md` (tier-1/tier-2 model references)
-- Modify: `skills/ralph-beans-implement/SKILL.md` (implementer + review model references)
-- Modify: `skills/ralph-beans-implement/roles/review-coordinator.md` (tier-1/tier-2 model references)
+- Modify: `skills/develop-subs/SKILL.md` (implementer + review model references)
+- Modify: `skills/develop-subs/roles/review-coordinator.md` (tier-1/tier-2 model references)
+- Modify: `skills/develop-team/SKILL.md` (implementer + review model references)
+- Modify: `skills/develop-team/roles/review-coordinator.md` (tier-1/tier-2 model references)
 
 **Step 1: Update orchestrate.conf schema**
 
@@ -489,20 +489,20 @@ In `skills/panel/SKILL.md`, replace all `model: "haiku"` in Agent spawns with a 
 
 Replace the 3 hardcoded `model: "haiku"` references.
 
-**Step 5: Update ralph-subs-implement**
+**Step 5: Update develop-subs**
 
-In `skills/ralph-subs-implement/SKILL.md`, replace hardcoded `model: "sonnet"` in implementer and review coordinator spawns with config-read instructions:
+In `skills/develop-subs/SKILL.md`, replace hardcoded `model: "sonnet"` in implementer and review coordinator spawns with config-read instructions:
 
 - Implementer spawn: use `models.develop.standard` (default: omit for session model)
 - Review coordinator spawn: use `models.develop.standard` (default: omit for session model)
 
-In `skills/ralph-subs-implement/roles/review-coordinator.md`:
+In `skills/develop-subs/roles/review-coordinator.md`:
 - Tier-1 review spawn: replace `model: "haiku"` with `models.develop.lite` (default: `"sonnet"`)
 - Tier-2 review spawn: replace `model: "sonnet"` with `models.develop.standard` (default: omit for session model)
 
-**Step 6: Update ralph-beans-implement**
+**Step 6: Update develop-team**
 
-Same changes as Step 5 but in `skills/ralph-beans-implement/SKILL.md` and `skills/ralph-beans-implement/roles/review-coordinator.md`.
+Same changes as Step 5 but in `skills/develop-team/SKILL.md` and `skills/develop-team/roles/review-coordinator.md`.
 
 **Step 7: Verify**
 

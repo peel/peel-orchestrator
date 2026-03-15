@@ -2,7 +2,7 @@
 # TaskCompleted hook: gate task completion on build/test verification.
 # Receives JSON on stdin. Exits 0 to allow, 2 to reject with feedback.
 #
-# Fires for ralph-beans teams. Skips reviewer completions (no code changes).
+# Fires for develop-team teams. Skips reviewer completions (no code changes).
 # Finds the worktree from bean tags via beans CLI.
 # Runs: go build, go test -short, and flutter test (if dart files changed).
 
@@ -14,9 +14,9 @@ TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // ""')
 TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // ""')
 CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
 
-# Only gate ralph-beans teams
+# Only gate develop-team teams
 case "$TEAM_NAME" in
-  ralph-beans-*) ;;
+  develop-team-*) ;;
   *) exit 0 ;;
 esac
 

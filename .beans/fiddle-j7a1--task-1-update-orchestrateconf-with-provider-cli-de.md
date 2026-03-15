@@ -1,13 +1,13 @@
 ---
 # fiddle-j7a1
 title: 'Task 1: Update orchestrate.conf with provider CLI definitions'
-status: todo
+status: completed
 type: task
 priority: high
 tags:
     - worktree
 created_at: 2026-03-15T13:47:22Z
-updated_at: 2026-03-15T13:47:22Z
+updated_at: 2026-03-15T14:02:53Z
 parent: fiddle-jj30
 ---
 

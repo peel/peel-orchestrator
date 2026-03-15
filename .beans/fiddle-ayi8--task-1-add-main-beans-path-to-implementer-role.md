@@ -16,7 +16,7 @@ parent: fiddle-vfl9
 Plan: docs/plans/2026-03-14-beans-path-worktree-fix.md Task 1
 
 Files:
-- Modify: skills/ralph-beans-implement/roles/implementer.md
+- Modify: skills/develop-team/roles/implementer.md
 
 Step 1: Add {MAIN_BEANS_PATH} to the Workspace section
 

@@ -19,7 +19,7 @@ DEFINE
      └─ fiddle:bean-decomposition — task sizing rules
 
 DEVELOP
-  └─ fiddle:ralph-subs-implement  — parallel bean implementation
+  └─ fiddle:develop-subs  — parallel bean implementation
      └─ implementers (sonnet)   — write code in worktrees
      └─ review coordinators     — tiered review (haiku → sonnet)
   └─ reaction engine            — CI failure, stall, review overflow detection
@@ -37,8 +37,8 @@ DELIVER
 |-------|---------|
 | `fiddle:orchestrate` | Full lifecycle orchestrator (DISCOVER → DEFINE → DEVELOP → DELIVER) |
 | `fiddle:panel` | Multi-model adversarial analysis with cross-review and synthesis |
-| `fiddle:ralph-subs-implement` | Parallel bean implementation with subagents and tiered review |
-| `fiddle:ralph-beans-implement` | Team-based bean implementation variant |
+| `fiddle:develop-subs` | Parallel bean implementation with subagents and tiered review |
+| `fiddle:develop-team` | Team-based bean implementation variant |
 | `fiddle:docs-discover` | Socratic dialogue to bootstrap or review project docs |
 | `fiddle:docs-evolve` | Post-ship update of technical docs, ADRs, backlog |
 | `fiddle:bean-decomposition` | Task sizing rules for implementation plans |

@@ -64,7 +64,7 @@ git commit -m "feat: add explicit provider CLI definitions to orchestrate.conf"
 ### Task 2: Create provider-context.md template
 
 **Files:**
-- Create: `skills/ralph-subs-implement/roles/provider-context.md`
+- Create: `skills/develop-subs/roles/provider-context.md`
 
 **Step 1: Write the template file**
 
@@ -102,7 +102,7 @@ Check that every placeholder uses `{UPPER_SNAKE_CASE}` format and matches the pl
 **Step 3: Commit**
 
 ```bash
-git add skills/ralph-subs-implement/roles/provider-context.md
+git add skills/develop-subs/roles/provider-context.md
 git commit -m "feat: add provider context template for standardized handoff"
 ```
 
@@ -111,7 +111,7 @@ git commit -m "feat: add provider context template for standardized handoff"
 ### Task 3: Create provider-dispatch.md procedure
 
 **Files:**
-- Create: `skills/ralph-subs-implement/roles/provider-dispatch.md`
+- Create: `skills/develop-subs/roles/provider-dispatch.md`
 
 **Step 1: Write the dispatch procedure**
 
@@ -202,7 +202,7 @@ Check that the procedure references `roles/provider-context.md` (Task 2) and `or
 **Step 3: Commit**
 
 ```bash
-git add skills/ralph-subs-implement/roles/provider-dispatch.md
+git add skills/develop-subs/roles/provider-dispatch.md
 git commit -m "feat: add provider dispatch procedure for async CLI coordination"
 ```
 

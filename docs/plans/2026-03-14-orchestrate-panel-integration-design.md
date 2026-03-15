@@ -97,7 +97,7 @@ New Step 0 before spawning ralph:
 
 **Execution choice** — check `orchestrate.conf` for a `develop.execution` setting. If set, use it. If not set, present options to the user:
 
-- **Ralph Subs (background subagent)** — spawn `ralph-subs-implement` as background Agent in this session. Automated implement/review cycles.
+- **Ralph Subs (background subagent)** — spawn `develop-subs` as background Agent in this session. Automated implement/review cycles.
 - **Tmux Team (conductor agent)** — launch parallel workers in tmux panes via conductor.
 - **Hands-on (this session)** — use `superpowers:subagent-driven-development`. Fresh subagent per task with code review between tasks. Interactive with human checkpoints.
 - **Hands-on (parallel session)** — open new session with `superpowers:executing-plans`. Batch execution with checkpoints.
@@ -105,7 +105,7 @@ New Step 0 before spawning ralph:
 Config override example in `orchestrate.conf`:
 ```hcl
 develop {
-  execution = "ralph-subs"  // or "tmux-team" or "hands-on"
+  execution = "develop-subs"  // or "tmux-team" or "hands-on"
 }
 ```
 
@@ -117,8 +117,8 @@ Replace all 12 hardcoded model references across skills with config-driven value
 
 - **Orchestrate** — ralph spawn uses `models.develop.standard`
 - **Panel** — position advocates use `models.define`
-- **Ralph-subs-implement** — implementers use `models.develop.standard`, tier-1 review uses `models.develop.lite`, tier-2 review uses `models.develop.standard`
-- **Ralph-beans-implement** — same as ralph-subs
+- **develop-subs** — implementers use `models.develop.standard`, tier-1 review uses `models.develop.lite`, tier-2 review uses `models.develop.standard`
+- **develop-team** — same as develop-subs
 
 Each skill reads `orchestrate.conf` if present, falls back to defaults. The `"default"` keyword means inherit the session model.
 
@@ -147,7 +147,7 @@ DEFINE:
   → capture epic → transition
 
 DEVELOP:
-  execution choice (config or interactive: ralph-subs | tmux team | hands-on)
+  execution choice (config or interactive: develop-subs | tmux team | hands-on)
   → execute (models from config) → holistic review → transition
 
 DELIVER:

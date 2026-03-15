@@ -16,7 +16,7 @@ parent: fiddle-vfl9
 Plan: docs/plans/2026-03-14-beans-path-worktree-fix.md Task 2
 
 Files:
-- Modify: skills/ralph-beans-implement/roles/review-coordinator.md
+- Modify: skills/develop-team/roles/review-coordinator.md
 
 Step 1: Add {MAIN_BEANS_PATH} to the bean metadata section
 

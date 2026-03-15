@@ -16,7 +16,7 @@ parent: fiddle-vfl9
 Plan: docs/plans/2026-03-14-beans-path-worktree-fix.md Task 3
 
 Files:
-- Modify: skills/ralph-beans-implement/SKILL.md
+- Modify: skills/develop-team/SKILL.md
 
 Step 1: Add MAIN_BEANS_PATH computation to Setup
 

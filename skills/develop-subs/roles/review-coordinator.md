@@ -30,7 +30,7 @@ You are a review coordinator subagent. Your job is to manage the full review pip
 ### Step 1: Build Reviewer Prompts
 
 For each reviewer agent listed above:
-1. Read `.claude/skills/ralph-subs-implement/roles/reviewer.md` as the base prompt
+1. Read `.claude/skills/develop-subs/roles/reviewer.md` as the base prompt
 2. Replace placeholders: `{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}` with the values from this prompt
 3. If the agent is a domain expert (not `baseline`), read its definition from `.claude/agents/{agent-name}.md` and append the content under a `## Domain Expertise` header in the prompt
 4. The `baseline` reviewer uses the reviewer.md prompt as-is (no domain expertise appended)

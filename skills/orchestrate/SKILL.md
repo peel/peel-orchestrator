@@ -81,7 +81,7 @@ models {
 }
 
 develop {
-  # execution = "ralph-subs"  // or "tmux-team", "hands-on", "hands-on-parallel"
+  # execution = "develop-subs"  // or "tmux-team", "hands-on", "hands-on-parallel"
 }
 ```
 
@@ -188,13 +188,13 @@ This reads existing docs, CLAUDE.md, beans, and relevant source files. It produc
 
 If DISCOVER providers are configured (default: codex):
 
-Read `roles/provider-dispatch.md` (resolve relative to this skill's base directory: `../ralph-subs-implement/roles/provider-dispatch.md`). Follow the dispatch procedure for each provider in the discover phase list with these template values:
+Read `roles/provider-dispatch.md` (resolve relative to this skill's base directory: `../develop-subs/roles/provider-dispatch.md`). Follow the dispatch procedure for each provider in the discover phase list with these template values:
 
 - `PROVIDER_ROLE` = "Research analyst"
 - `TOPIC` = `<topic>`
 - `INSTRUCTIONS` = "Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
 
-Also read `roles/provider-context.md` (`../ralph-subs-implement/roles/provider-context.md`) for prompt construction.
+Also read `roles/provider-context.md` (`../develop-subs/roles/provider-context.md`) for prompt construction.
 
 Dispatch all providers in parallel. Collect results in **attended** mode.
 
@@ -279,15 +279,15 @@ Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume
 </HARD-GATE>
 
 - **If Ralph Subs:** proceed to Step 1 (Spawn Ralph Subagent) as normal.
-- **If Tmux Team:** proceed to Step 1 but use `ralph-beans-implement` (team variant) instead of `ralph-subs-implement`.
+- **If Tmux Team:** proceed to Step 1 but use `develop-team` (team variant) instead of `develop-subs`.
 - **If Hands-on (this session):** invoke `Skill(skill: "superpowers:subagent-driven-development")`. When execution completes, proceed to Step 3 (Holistic Review).
 - **If Hands-on (parallel session):** guide the user to open a new session and run `superpowers:executing-plans`. Wait for the user to signal completion, then proceed to Step 3 (Holistic Review).
 
 ### Step 1: Spawn Ralph Subagent
 
 Read the ralph skill file to build the prompt. Which skill depends on the execution choice from Step 0:
-- **Ralph Subs (option 1):** `ralph-subs-implement/SKILL.md`
-- **Tmux Team (option 2):** `ralph-beans-implement/SKILL.md`
+- **Ralph Subs (option 1):** `develop-subs/SKILL.md`
+- **Tmux Team (option 2):** `develop-team/SKILL.md`
 
 Use the Read tool to load the SKILL.md file. The file is in a sibling directory relative to this skill's base directory: `../<ralph-variant>/SKILL.md` (resolve against the "Base directory for this skill" shown when this skill was loaded). Do NOT use the Skill tool — these skills have `disable-model-invocation` since they are agent prompts, not directly invocable skills.
 
@@ -352,7 +352,7 @@ Present bean summary to user (completed, in-progress, todo, needs-attention coun
 
 When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-progress`):
 
-1. Run the external holistic review. If DEVELOP holistic providers are configured, read `roles/provider-dispatch.md` (`../ralph-subs-implement/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the develop_holistic phase list with these template values:
+1. Run the external holistic review. If DEVELOP holistic providers are configured, read `roles/provider-dispatch.md` (`../develop-subs/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the develop_holistic phase list with these template values:
 
    - `PROVIDER_ROLE` = "Holistic reviewer"
    - `TOPIC` = "Epic holistic review for `<epic-id>`"
@@ -360,7 +360,7 @@ When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-
    - `DIFF` = `<git diff main...epic/<epic-id>>`
    - `INSTRUCTIONS` = "Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
 
-   Also read `roles/provider-context.md` (`../ralph-subs-implement/roles/provider-context.md`) for prompt construction.
+   Also read `roles/provider-context.md` (`../develop-subs/roles/provider-context.md`) for prompt construction.
 
    Dispatch all providers in parallel. Collect results in **unattended** mode (first-past-the-post).
 
@@ -380,7 +380,7 @@ Fall through to DELIVER.
 
 ### Step 1: Drift Analysis
 
-If DELIVER providers are configured (default: codex), read `roles/provider-dispatch.md` (`../ralph-subs-implement/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the deliver phase list with these template values:
+If DELIVER providers are configured (default: codex), read `roles/provider-dispatch.md` (`../develop-subs/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the deliver phase list with these template values:
 
 - `PROVIDER_ROLE` = "Drift analyst"
 - `TOPIC` = "Design vs implementation drift for `<epic-id>`"
@@ -388,7 +388,7 @@ If DELIVER providers are configured (default: codex), read `roles/provider-dispa
 - `DIFF` = `<git diff main...epic/<epic-id> or git diff main...HEAD>`
 - `INSTRUCTIONS` = "Analyze: did the implementation match the design? Flag any drift, missing features, scope creep, or unintended changes."
 
-Also read `roles/provider-context.md` (`../ralph-subs-implement/roles/provider-context.md`) for prompt construction.
+Also read `roles/provider-context.md` (`../develop-subs/roles/provider-context.md`) for prompt construction.
 
 Dispatch all providers in parallel. Collect results in **attended** mode.
 

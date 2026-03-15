@@ -1,5 +1,5 @@
 ---
-name: fiddle:ralph-subs-implement
+name: fiddle:develop-subs
 description: Execute beans tasks using subagents with ralph loop pattern. Implementers and review coordinators are background subagents; coordinators encapsulate the full tier-1/tier-2 review pipeline and return a verdict. Supports configurable parallelism.
 disable-model-invocation: true
 argument-hint: [--epic <id>] [--workers 10] [--max-review-cycles 10] [--max-impl-turns 100] [--max-review-turns 100] [--ci-max-retries 3] [--stall-timeout-min 15] [--stall-max-respawns 2] [--caller <name>]
@@ -34,7 +34,7 @@ Flags (all optional, order-independent):
 
 1. `BEANS_LIST` — if no incomplete beans, stop
 2. Compute `MAIN_BEANS_PATH`: the absolute path to `.beans/` in the main checkout. Store this value — it will be substituted into all agent prompts as `{MAIN_BEANS_PATH}`. Example: if main checkout is `/Users/peel/wrk/board`, then `MAIN_BEANS_PATH=/Users/peel/wrk/board/.beans`.
-3. Discover available agents: list `.claude/agents/*.md`, `~/.claude/agents/*.md`, and `.claude/skills/ralph-subs-implement/roles/*.md`. Read each file's opening lines to understand capabilities.
+3. Discover available agents: list `.claude/agents/*.md`, `~/.claude/agents/*.md`, and `.claude/skills/develop-subs/roles/*.md`. Read each file's opening lines to understand capabilities.
 4. **Worktree setup** (when `--workers > 1`): Read `roles/lead-procedures.md` → follow "Worktree Setup".
 5. Fall through to "Assess and Act"
 
@@ -148,7 +148,7 @@ All agents are subagents (no `team_name`). The coordinator internally spawns rev
 
 ### Implementer Spawn
 
-1. Read `.claude/skills/ralph-subs-implement/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
+1. Read `.claude/skills/develop-subs/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
 2. If worktree assigned: omit the `## Git Coordination` section (between `<!-- CONDITIONAL -->` markers)
 3. For fix cycles, append issues under `## Review Issues to Address`
 4. Spawn and tag bean:
@@ -170,7 +170,7 @@ beans update {id} --tag role:implement --tag bg-task:{task_id}
 **Cycle 1:** Auto-select ALL domain agents relevant to the bean. Always include `baseline`.
 **Cycle 2+:** Use only the reviewers from the bean's `flagged-by:*` tag (set by previous verdict).
 
-1. Read `.claude/skills/ralph-subs-implement/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
+1. Read `.claude/skills/develop-subs/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
 2. Spawn and tag bean:
 ```
 task = Task(

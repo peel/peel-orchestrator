@@ -1,20 +1,20 @@
 ---
 # fiddle-f2ib
 title: 'Task 3: Create provider-dispatch.md procedure'
-status: todo
+status: completed
 type: task
 priority: high
 tags:
     - worktree
 created_at: 2026-03-15T13:47:57Z
-updated_at: 2026-03-15T13:47:57Z
+updated_at: 2026-03-15T14:16:18Z
 parent: fiddle-jj30
 ---
 
 Plan: docs/plans/2026-03-15-async-provider-coordination.md Task 3
 
 Files:
-- Create: skills/ralph-subs-implement/roles/provider-dispatch.md
+- Create: skills/develop-subs/roles/provider-dispatch.md
 
 Steps:
 1. Create the dispatch procedure file with sections: Read Config, Build Prompt, Dispatch (Background), Collect Results (Attended mode + Unattended mode), Parse Output, Cleanup.
@@ -31,7 +31,7 @@ Key content:
 3. Commit: git commit -m "feat: add provider dispatch procedure for async CLI coordination"
 
 Acceptance criteria:
-- File exists at skills/ralph-subs-implement/roles/provider-dispatch.md
+- File exists at skills/develop-subs/roles/provider-dispatch.md
 - Read Config, Build Prompt, Dispatch, Collect Results (both modes), Parse Output, Cleanup sections present
 - Attended mode has 3 options: keep waiting, respawn, kill
 - Unattended mode has first-past-the-post behavior

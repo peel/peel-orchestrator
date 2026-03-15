@@ -13,7 +13,7 @@
 ### Task 1: Add `{MAIN_BEANS_PATH}` to implementer role
 
 **Files:**
-- Modify: `skills/ralph-beans-implement/roles/implementer.md`
+- Modify: `skills/develop-team/roles/implementer.md`
 
 **Step 1: Add `{MAIN_BEANS_PATH}` to the Workspace section**
 
@@ -67,7 +67,7 @@ Read the file and confirm:
 ### Task 2: Add `{MAIN_BEANS_PATH}` to review coordinator role
 
 **Files:**
-- Modify: `skills/ralph-beans-implement/roles/review-coordinator.md`
+- Modify: `skills/develop-team/roles/review-coordinator.md`
 
 **Step 1: Add `{MAIN_BEANS_PATH}` to the bean metadata section**
 
@@ -99,7 +99,7 @@ Read the file and confirm:
 ### Task 3: Update SKILL.md for `{MAIN_BEANS_PATH}` computation and usage
 
 **Files:**
-- Modify: `skills/ralph-beans-implement/SKILL.md`
+- Modify: `skills/develop-team/SKILL.md`
 
 **Step 1: Add `{MAIN_BEANS_PATH}` computation to Setup**
 
@@ -117,24 +117,24 @@ Renumber subsequent steps (current 2→3, 3→4, 4→5, 5→6).
 
 Line 111 currently reads:
 ```
-1. Read `.claude/skills/ralph-beans-implement/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`)
+1. Read `.claude/skills/develop-team/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`)
 ```
 
 Change to:
 ```
-1. Read `.claude/skills/ralph-beans-implement/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
+1. Read `.claude/skills/develop-team/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
 ```
 
 **Step 3: Add `{MAIN_BEANS_PATH}` to Review Coordinator Spawn placeholder list**
 
 Line 133 currently reads:
 ```
-1. Read `.claude/skills/ralph-beans-implement/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
+1. Read `.claude/skills/develop-team/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
 ```
 
 Change to:
 ```
-1. Read `.claude/skills/ralph-beans-implement/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
+1. Read `.claude/skills/develop-team/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
 ```
 
 **Step 4: Add `--beans-path` to lead's own bean commands**
@@ -157,7 +157,7 @@ Read the file and confirm:
 ### Task 4: Update lead-procedures.md for `--beans-path` in verification flow
 
 **Files:**
-- Modify: `skills/ralph-beans-implement/roles/lead-procedures.md`
+- Modify: `skills/develop-team/roles/lead-procedures.md`
 
 **Step 1: Add `--beans-path` reminder to Lead Verification**
 

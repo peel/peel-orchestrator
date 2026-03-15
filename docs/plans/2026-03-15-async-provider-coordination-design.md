@@ -51,7 +51,7 @@ The `command` + `flags` are read verbatim by the dispatch procedure. The existin
 
 ## Provider Context Template
 
-New file: `skills/ralph-subs-implement/roles/provider-context.md`
+New file: `skills/develop-subs/roles/provider-context.md`
 
 ```markdown
 # Provider Context
@@ -84,7 +84,7 @@ Placeholders are substituted by the calling skill. Sections with no value are st
 
 ## Provider Dispatch Procedure
 
-New file: `skills/ralph-subs-implement/roles/provider-dispatch.md`
+New file: `skills/develop-subs/roles/provider-dispatch.md`
 
 An on-demand procedure (like `lead-procedures.md`) that documents the exact steps:
 

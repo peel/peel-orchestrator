@@ -1,13 +1,13 @@
 ---
 # fiddle-p7fr
 title: 'Task 6: Update session-start-check-providers.sh for CLI-only'
-status: todo
+status: completed
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-15T13:48:44Z
-updated_at: 2026-03-15T13:48:44Z
+updated_at: 2026-03-15T14:19:45Z
 parent: fiddle-jj30
 ---
 

@@ -16,7 +16,7 @@ parent: fiddle-vfl9
 Plan: docs/plans/2026-03-14-beans-path-worktree-fix.md Task 4
 
 Files:
-- Modify: skills/ralph-beans-implement/roles/lead-procedures.md
+- Modify: skills/develop-team/roles/lead-procedures.md
 
 Step 1: Add --beans-path reminder to Lead Verification
 

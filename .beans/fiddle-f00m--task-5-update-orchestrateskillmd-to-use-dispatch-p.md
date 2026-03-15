@@ -1,13 +1,13 @@
 ---
 # fiddle-f00m
 title: 'Task 5: Update orchestrate/SKILL.md to use dispatch procedure'
-status: todo
+status: completed
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-15T13:48:28Z
-updated_at: 2026-03-15T13:49:27Z
+updated_at: 2026-03-15T14:43:40Z
 parent: fiddle-jj30
 blocked_by:
     - fiddle-j7a1

@@ -1,13 +1,13 @@
 ---
 # fiddle-svp1
 title: 'Task 8: Update SYSTEM.md for CLI-only providers'
-status: todo
+status: completed
 type: task
 priority: low
 tags:
     - worktree
 created_at: 2026-03-15T13:49:13Z
-updated_at: 2026-03-15T13:49:27Z
+updated_at: 2026-03-15T15:00:30Z
 parent: fiddle-jj30
 blocked_by:
     - fiddle-19g1

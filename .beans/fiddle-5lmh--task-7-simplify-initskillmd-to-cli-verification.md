@@ -1,13 +1,13 @@
 ---
 # fiddle-5lmh
 title: 'Task 7: Simplify init/SKILL.md to CLI verification'
-status: todo
+status: completed
 type: task
 priority: low
 tags:
     - worktree
 created_at: 2026-03-15T13:48:57Z
-updated_at: 2026-03-15T13:48:57Z
+updated_at: 2026-03-15T14:33:18Z
 parent: fiddle-jj30
 ---
 

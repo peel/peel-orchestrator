@@ -181,7 +181,7 @@ beans update <task-2-id> --blocked-by <task-1-id>
 
 **Priority:** critical > high > normal > low (based on how many others a task blocks).
 
-**Isolation tags:** Each bean gets `--tag worktree` (default) or `--tag branch`. This controls how `ralph-beans-implement` runs it:
+**Isolation tags:** Each bean gets `--tag worktree` (default) or `--tag branch`. This controls how `develop-team` runs it:
 
 | Tag | Behavior | Use when |
 |-----|----------|----------|
@@ -227,7 +227,7 @@ Insert before `**Which approach?"**`:
 ```
 **3. Beans Batch (separate session)** - Open new session with executing-plans, batch execution using beans for state tracking
 
-**4. Ralph Beans (hands-off)** - Run `/fiddle:ralph-beans-implement --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
+**4. Ralph Beans (hands-off)** - Run `/fiddle:develop-team --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
 ```
 
 After the `**If Parallel Session chosen:**` block, add:
@@ -239,7 +239,7 @@ After the `**If Parallel Session chosen:**` block, add:
 
 **If Ralph Beans chosen:**
 - Guide them to open new session (optionally in worktree)
-- Run `/fiddle:ralph-beans-implement --epic <epic-id>` with appropriate flags (e.g., `--workers 2`)
+- Run `/fiddle:develop-team --epic <epic-id>` with appropriate flags (e.g., `--workers 2`)
 - The `--epic` flag scopes execution to only beans under this epic — safe when other beans exist
 - Beans are self-contained — agents work from bean bodies directly, no plan file needed
 - Fully automated: implement → review → fix cycles until all beans complete
@@ -296,4 +296,4 @@ Read all three patched files and confirm:
 - Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets
 - All three have `[BEANS-PATCHED]` marker
 
-Report: "Superpowers patched. Flow: brainstorming (with panel enrichment) → writing-plans (with beans) → executing-plans OR ralph-beans-implement."
+Report: "Superpowers patched. Flow: brainstorming (with panel enrichment) → writing-plans (with beans) → executing-plans OR develop-team."
