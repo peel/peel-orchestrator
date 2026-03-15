@@ -6,9 +6,9 @@ set -uo pipefail
 CONF="${CLAUDE_PROJECT_DIR:-.}/orchestrate.conf"
 [[ -f "$CONF" ]] || exit 0
 
-# Extract unique provider names from orchestrate.conf
-# Matches quoted strings inside brackets: ["codex", "gemini"]
-PROVIDERS=$(grep -oE '"[a-z]+"' "$CONF" | tr -d '"' | sort -u)
+# Extract unique provider names from phase assignment lines only
+# (lines with = [...]) to avoid matching command/flags values
+PROVIDERS=$(grep -E '=\s*\[' "$CONF" | grep -oE '"[a-z]+"' | tr -d '"' | sort -u)
 
 [[ -z "$PROVIDERS" ]] && exit 0
 

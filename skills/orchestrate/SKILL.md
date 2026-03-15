@@ -33,7 +33,7 @@ Parse from `{ARGS}`:
 
 ### Config File
 
-Read `.claude/orchestrate.conf` if it exists. Format is HCL:
+Read `orchestrate.conf` (project root) if it exists. Format is HCL:
 
 ```hcl
 providers {
@@ -106,7 +106,7 @@ Run this section immediately on invocation, before any phase.
 ### Step 1: Parse Configuration
 
 1. Set provider defaults from the table above. Set model defaults from the Model Defaults table.
-2. If `.claude/orchestrate.conf` exists: read it with the Read tool. Parse each HCL block:
+2. If `orchestrate.conf` exists (project root): read it with the Read tool. Parse each HCL block:
    - `providers {}` — override provider defaults for each phase
    - `ralph {}` — set workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
    - `models {}` — override model defaults for each phase. Nested `develop {}` block contains `standard` and `lite` keys. "default" means omit the `model:` parameter to inherit the session model.
