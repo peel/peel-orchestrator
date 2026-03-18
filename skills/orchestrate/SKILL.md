@@ -2,12 +2,14 @@
 name: fiddle:orchestrate
 description: Use when starting a full development lifecycle for a feature or epic — chains discover, define, develop, deliver phases with multi-model support and reaction engine
 disable-model-invocation: true
-argument-hint: <topic> [--epic <id>] [--skip-discover] [--providers codex,gemini]
+argument-hint: <topic> [--epic <id>] [--skip-discover] [--skip-grill] [--providers codex,gemini]
 ---
 
 # Orchestrate
 
-Automated outer loop: DISCOVER → DEFINE → DEVELOP → DELIVER. Chains existing skills with multi-model input and a reaction engine that self-heals before escalating.
+Automated outer loop: DISCOVER → DEFINE → DEVELOP → DELIVER. Sequences phase skills with configuration, status tracking, and resumption support.
+
+Each phase is an independent skill (`fiddle:discover`, `fiddle:define`, `fiddle:develop`, `fiddle:deliver`) that can also be invoked standalone. Orchestrate's job is to sequence them, pass through configuration, and handle phase transitions.
 
 ARGUMENTS: {ARGS}
 
@@ -21,15 +23,18 @@ Parse from `{ARGS}`:
 |---|---|---|
 | `--epic <id>` | none | Resume an existing epic. Skips DISCOVER/DEFINE if beans exist |
 | `--skip-discover` | false | Jump straight to DEFINE |
+| `--skip-docs` | false | Passed through to discover phase — skip docs-discover |
+| `--skip-grill` | false | Passed through to discover and define phases |
+| `--skip-panel` | false | Passed through to define phase |
 | `--providers <list>` | per-phase defaults | Global provider override (comma-separated) |
 | `--discover-providers <list>` | codex | Override DISCOVER phase providers |
 | `--define-providers <list>` | codex,gemini | Override DEFINE phase providers |
 | `--develop-providers <list>` | none | Override DEVELOP phase providers |
 | `--develop-holistic-providers <list>` | codex | Override holistic review providers |
 | `--deliver-providers <list>` | codex | Override DELIVER phase providers |
-| `--workers <N>` | 2 | Parallel worker count for ralph |
-| `--max-review-cycles <N>` | 3 | Max review cycles before escalating |
-| `--max-total-turns <N>` | 200 | Max agent turns for ralph subagent |
+| `--workers <N>` | 2 | Passed through to develop phase |
+| `--max-review-cycles <N>` | 3 | Passed through to develop phase |
+| `--max-total-turns <N>` | 200 | Passed through to develop phase |
 
 ### Config File
 
@@ -113,6 +118,8 @@ Claude is implicit — always present, never listed. When a phase lists "codex",
 
 Defaults → config file → CLI flags. Later values override earlier ones. `--providers` sets all phases; per-phase flags override that.
 
+Orchestrate reads `orchestrate.conf` once during SETUP and computes final values. These are passed as CLI args to each phase skill. Phase skills also read `orchestrate.conf` for their own defaults when invoked standalone, but when called from orchestrate, the passed args take precedence.
+
 ## SETUP
 
 Run this section immediately on invocation, before any phase.
@@ -175,43 +182,18 @@ Jump to the determined phase section below.
 
 Skip this phase if `--skip-discover` was set OR if `--epic` was provided and child beans already exist.
 
-### Step 1: Docs Discovery
+Build args for the discover phase:
+- `<topic>`
+- `--providers <discover-providers>` (if overridden from defaults)
+- `--skip-docs` (if set)
+- `--skip-grill` (if set)
 
-Invoke docs-discover to gather project context and identify gaps:
+Invoke:
 ```
-Skill(skill: "fiddle:docs-discover", args: "<topic>")
+Skill(skill: "fiddle:discover", args: "<built args>")
 ```
 
-This reads existing docs, CLAUDE.md, beans, and relevant source files. It produces a structured summary of what exists, what's relevant, and what gaps remain.
-
-### Step 2: External Research
-
-If DISCOVER providers are configured (default: codex):
-
-Read `roles/provider-dispatch.md` (resolve relative to this skill's base directory: `../develop-subs/roles/provider-dispatch.md`). Follow the dispatch procedure for each provider in the discover phase list with these template values:
-
-- `PROVIDER_ROLE` = "Research analyst"
-- `TOPIC` = `<topic>`
-- `INSTRUCTIONS` = "Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
-
-Also read `roles/provider-context.md` (`../develop-subs/roles/provider-context.md`) for prompt construction.
-
-Dispatch all providers in parallel. Collect results in **attended** mode.
-
-If no provider CLI is available, skip and proceed with Claude's internal knowledge only.
-
-### Step 3: Socratic Dialogue
-
-Present findings to the user as a Socratic dialogue — Claude synthesizes the evidence and asks clarifying questions:
-
-1. Summarize what you found (project context + external research)
-2. Identify key decisions that need to be made
-3. Ask the user to confirm the scope: "Based on this research, the scope appears to be: [X]. Does this match your intent? Any adjustments?"
-
-Wait for user confirmation before proceeding.
-
-### Step 4: Transition
-
+Transition:
 ```bash
 beans update <epic-id> --remove-tag orchestrate-phase:DISCOVER --tag orchestrate-phase:DEFINE
 ```
@@ -222,25 +204,18 @@ Fall through to DEFINE.
 
 ## DEFINE
 
-### Step 1: Brainstorming
+Build args for the define phase:
+- `<topic>`
+- `--providers <define-providers>` (if overridden from defaults)
+- `--skip-grill` (if set)
+- `--skip-panel` (if set)
 
-Invoke the brainstorming skill with the orchestrate flag:
+Invoke:
 ```
-Skill(skill: "superpowers:brainstorming", args: "--from-orchestrate")
-```
-
-This explores the user's intent, asks questions, proposes 2-3 approaches, runs panel enrichment (if providers are available), and produces a design doc. The `--from-orchestrate` flag causes the skill to return control here after writing the design doc instead of chaining to writing-plans. Follow the skill's instructions completely.
-
-### Step 2: Implementation Planning
-
-Invoke the writing-plans skill with the orchestrate flag:
-```
-Skill(skill: "superpowers:writing-plans", args: "--from-orchestrate")
+Skill(skill: "fiddle:define", args: "<built args>")
 ```
 
-This creates a detailed implementation plan and decomposes it into beans. The `--from-orchestrate` flag causes the skill to return control here after bean creation instead of presenting execution handoff options.
-
-### Step 3: Capture Epic ID
+### Capture Epic ID
 
 If `--epic` was not provided at invocation:
 
@@ -251,8 +226,7 @@ beans list --json -t epic -s todo
 
 Take the most recently created epic ID. Store it for the remaining phases.
 
-### Step 4: Transition
-
+Transition:
 ```bash
 beans update <epic-id> --remove-tag orchestrate-phase:DEFINE --tag orchestrate-phase:DEVELOP
 ```
@@ -261,115 +235,18 @@ Fall through to DEVELOP.
 
 ## DEVELOP
 
-### Step 0: Execution Choice
+Build args for the develop phase:
+- `--epic <epic-id>`
+- `--workers <workers>` (if overridden from defaults)
+- `--max-review-cycles <max-review-cycles>` (if overridden from defaults)
+- `--max-total-turns <max-total-turns>` (if overridden from defaults)
 
-Check `orchestrate.conf` for a `develop.execution` setting. If set, use that value without prompting. If not set, present options and **wait for the user to pick a number**:
-
+Invoke:
 ```
-"Beans are ready. Pick an execution mode (1-4):
-
-1. Ralph Subs — automated background subagent with implement/review cycles
-2. Tmux Team — parallel workers in tmux panes via conductor agent
-3. Hands-on (this session) — superpowers:subagent-driven-development with human checkpoints
-4. Hands-on (parallel session) — superpowers:executing-plans in a new session"
+Skill(skill: "fiddle:develop", args: "<built args>")
 ```
 
-<HARD-GATE>
-Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume a default. Do NOT auto-select. Wait for their response.
-</HARD-GATE>
-
-- **If Ralph Subs:** proceed to Step 1 (Spawn Ralph Subagent) as normal.
-- **If Tmux Team:** proceed to Step 1 but use `develop-team` (team variant) instead of `develop-subs`.
-- **If Hands-on (this session):** invoke `Skill(skill: "superpowers:subagent-driven-development")`. When execution completes, proceed to Step 3 (Holistic Review).
-- **If Hands-on (parallel session):** guide the user to open a new session and run `superpowers:executing-plans`. Wait for the user to signal completion, then proceed to Step 3 (Holistic Review).
-
-### Step 1: Spawn Ralph Subagent
-
-Read the ralph skill file to build the prompt. Which skill depends on the execution choice from Step 0:
-- **Ralph Subs (option 1):** `develop-subs/SKILL.md`
-- **Tmux Team (option 2):** `develop-team/SKILL.md`
-
-Use the Read tool to load the SKILL.md file. The file is in a sibling directory relative to this skill's base directory: `../<ralph-variant>/SKILL.md` (resolve against the "Base directory for this skill" shown when this skill was loaded). Do NOT use the Skill tool — these skills have `disable-model-invocation` since they are agent prompts, not directly invocable skills.
-
-Spawn ralph as a background subagent with fresh context:
-
-```
-ralph_task = Agent(
-  name: "ralph-develop-<epic-id>",
-  subagent_type: "general-purpose",
-  model: <models.develop.standard>,  # if "default", omit model parameter to inherit session model
-  mode: "bypassPermissions",
-  run_in_background: true,
-  max_turns: <max_total_turns>,
-  prompt: "<contents of ralph SKILL.md, with the following args substituted:>
-    --epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>
-    --max-impl-turns <max_impl_turns> --max-review-turns <max_review_turns>
-    --ci-max-retries <ci_max_retries> --stall-timeout-min <stall_timeout_min>
-    --stall-max-respawns <stall_max_respawns> --caller orchestrate"
-)
-```
-
-For `critical` and `high` priority beans: include in the prompt an instruction for the review coordinator to additionally request a code review from configured DEVELOP providers via the provider-dispatch procedure.
-
-Wait for the result:
-```
-result = TaskOutput(task_id: ralph_task.id, block: true, timeout: 3600000)
-```
-
-### Step 2: Handle Ralph Result
-
-Parse the `result` from Step 1:
-
-**Case 1 — `RALPH_STATUS: COMPLETE`:**
-Ralph finished all beans successfully. Proceed to Step 3 (Holistic Review).
-
-**Case 2 — `RALPH_STATUS: PARKED`:**
-Some beans need attention. Parse the needs-attention bean list from the result.
-
-Present to user:
-```
-"Waiting on your input for N beans:
-- <bean-id>: <title> — <reason>
-- ...
-
-You can: fix the issue and remove needs-attention tag, scrub the bean, or rework the scope."
-```
-
-Wait for the user to address the parked beans. When they respond, respawn ralph — loop back to Step 1. **Re-use the identical SKILL.md prompt from the first spawn** — do NOT write a custom or simplified prompt. Ralph discovers current state from `beans list`.
-
-**Case 3 — Empty result, error, or max_turns exhausted:**
-Check bean state:
-```bash
-beans list --parent <epic-id> --json
-```
-
-Present bean summary to user (completed, in-progress, todo, needs-attention counts). Ask: "Ralph's context was exhausted. Respawn to continue, or proceed to holistic review with current state?"
-
-- If user says respawn → loop to Step 1. **Re-use the identical SKILL.md prompt** — do NOT write a simplified prompt.
-- If user says proceed → Step 3
-
-### Step 3: Holistic Review
-
-When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-progress`):
-
-1. Run the external holistic review. If DEVELOP holistic providers are configured, read `roles/provider-dispatch.md` (`../develop-subs/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the develop_holistic phase list with these template values:
-
-   - `PROVIDER_ROLE` = "Holistic reviewer"
-   - `TOPIC` = "Epic holistic review for `<epic-id>`"
-   - `DESIGN_DOC` = `<design doc content>`
-   - `DIFF` = `<git diff main...epic/<epic-id>>`
-   - `INSTRUCTIONS` = "Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
-
-   Also read `roles/provider-context.md` (`../develop-subs/roles/provider-context.md`) for prompt construction.
-
-   Dispatch all providers in parallel. Collect results in **unattended** mode (first-past-the-post).
-
-2. If no provider is available, perform the holistic review yourself: read the design doc, review the full diff, and compare.
-3. If holistic review creates fix beans → log "back to DEVELOP", loop to Step 1. **Re-use the identical SKILL.md prompt from the original spawn** — Ralph discovers new beans via `beans list`. Do NOT write a custom prompt for fix cycles.
-4. If clean → transition to DELIVER
-
-### Step 4: Transition
-
+Transition:
 ```bash
 beans update <epic-id> --remove-tag orchestrate-phase:DEVELOP --tag orchestrate-phase:DELIVER
 ```
@@ -378,54 +255,14 @@ Fall through to DELIVER.
 
 ## DELIVER
 
-### Step 1: Drift Analysis
+Build args for the deliver phase:
+- `--epic <epic-id>`
+- `--providers <deliver-providers>` (if overridden from defaults)
 
-If DELIVER providers are configured (default: codex), read `roles/provider-dispatch.md` (`../develop-subs/roles/provider-dispatch.md`) and follow the dispatch procedure for each provider in the deliver phase list with these template values:
-
-- `PROVIDER_ROLE` = "Drift analyst"
-- `TOPIC` = "Design vs implementation drift for `<epic-id>`"
-- `DESIGN_DOC` = `<read the design doc referenced in the epic bean body>`
-- `DIFF` = `<git diff main...epic/<epic-id> or git diff main...HEAD>`
-- `INSTRUCTIONS` = "Analyze: did the implementation match the design? Flag any drift, missing features, scope creep, or unintended changes."
-
-Also read `roles/provider-context.md` (`../develop-subs/roles/provider-context.md`) for prompt construction.
-
-Dispatch all providers in parallel. Collect results in **attended** mode.
-
-If no provider CLI is available, perform the drift analysis yourself: read the design doc, review the full diff, and compare.
-
-Present the drift analysis to the user:
+Invoke:
 ```
-"Drift analysis complete:
-- Implemented as designed: [list]
-- Drift detected: [list with explanations]
-- Missing from design: [list]
-- Added beyond design: [list]
-
-Proceed with documentation update?"
+Skill(skill: "fiddle:deliver", args: "<built args>")
 ```
-
-Wait for user confirmation before proceeding.
-
-### Step 2: Documentation Update
-
-Invoke docs-evolve automatically:
-```
-Skill(skill: "fiddle:docs-evolve", args: "--epic <epic-id>")
-```
-
-This updates SYSTEM.md, creates ADRs for architectural decisions, and appends to BACKLOG.md.
-
-Present the docs-evolve results to the user for confirmation. Wait for approval.
-
-### Step 3: Close Epic
-
-After user confirms documentation:
-```bash
-beans update <epic-id> --status completed
-```
-
-Fall through to CLEANUP.
 
 ## CLEANUP
 
