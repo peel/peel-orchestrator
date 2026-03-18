@@ -4,53 +4,69 @@ Claude Code plugin for automated development lifecycle. Chains discover, define,
 
 ## Orchestrate
 
-`/fiddle:orchestrate <topic>` runs the full lifecycle. Each phase invokes other skills:
+`/fiddle:orchestrate <topic>` runs the full lifecycle. Each phase is an independent skill that can also be invoked standalone:
 
 ```
-DISCOVER
-  └─ fiddle:docs-discover        — scan project docs, code, beans
-  └─ Codex MCP / Gemini CLI    — external research (optional)
+DISCOVER  (/fiddle:discover)
+  └─ fiddle:docs-discover       — scan project docs, code, beans
+  └─ external providers         — ecosystem research (optional)
   └─ Socratic dialogue          — confirm scope with user
+  └─ fiddle:grill --phase discover — stress-test scope assumptions
 
-DEFINE
+DEFINE  (/fiddle:define)
   └─ superpowers:brainstorming  — explore intent, produce 2-3 approaches
-  └─ fiddle:panel                 — adversarial debate across models
+  └─ fiddle:panel               — adversarial debate across models
+  └─ fiddle:grill --phase define — stress-test chosen design
   └─ superpowers:writing-plans  — implementation plan + bean decomposition
      └─ fiddle:bean-decomposition — task sizing rules
 
-DEVELOP
-  └─ fiddle:develop-subs  — parallel bean implementation
+DEVELOP  (/fiddle:develop)
+  └─ fiddle:develop-subs        — parallel bean implementation
      └─ implementers (sonnet)   — write code in worktrees
      └─ review coordinators     — tiered review (haiku → sonnet)
   └─ reaction engine            — CI failure, stall, review overflow detection
   └─ holistic review (opus)     — cross-bean consistency check
 
-DELIVER
-  └─ Codex MCP / Gemini CLI    — drift analysis vs design doc (optional)
-  └─ fiddle:docs-evolve           — update SYSTEM.md, ADRs, BACKLOG
+DELIVER  (/fiddle:deliver)
+  └─ external providers         — drift analysis vs design doc (optional)
+  └─ fiddle:docs-evolve         — update SYSTEM.md, ADRs, BACKLOG
   └─ close epic
 ```
 
 ## All Skills
 
-| Skill | Purpose |
-|-------|---------|
-| `fiddle:orchestrate` | Full lifecycle orchestrator (DISCOVER → DEFINE → DEVELOP → DELIVER) |
-| `fiddle:panel` | Multi-model adversarial analysis with cross-review and synthesis |
-| `fiddle:develop-subs` | Parallel bean implementation with subagents and tiered review |
-| `fiddle:develop-team` | Team-based bean implementation variant |
-| `fiddle:docs-discover` | Socratic dialogue to bootstrap or review project docs |
-| `fiddle:docs-evolve` | Post-ship update of technical docs, ADRs, backlog |
-| `fiddle:bean-decomposition` | Task sizing rules for implementation plans |
-| `fiddle:adr` | Create architecture decision record |
-| `fiddle:feedback` | Append user feedback signal |
-| `fiddle:backlog` | Append idea or debt item |
-| `fiddle:patch-superpowers` | Re-apply beans integration patches to superpowers skills |
-| `fiddle:init` | Configure MCP servers and CLI providers — detects installed tools and writes config |
+### Phase skills
+
+Independently invocable phases. Orchestrate sequences them, but each works standalone.
+
+| Skill | Use when you want to... |
+|-------|------------------------|
+| `fiddle:orchestrate` | Run the full lifecycle from idea to shipped code. |
+| `fiddle:discover` | Research a topic, confirm scope, and stress-test assumptions. |
+| `fiddle:define` | Turn confirmed scope into a validated design and implementation plan with beans. |
+| `fiddle:develop` | Execute an existing plan — spawn ralph workers, review, and holistic check. |
+| `fiddle:deliver` | Analyze drift, update docs, and close an epic after development is done. |
+
+### Supporting skills
+
+| Skill | Use when you want to... |
+|-------|------------------------|
+| `fiddle:grill` | Stress-test any plan or design by walking every branch of the decision tree. |
+| `fiddle:panel` | Get multi-model adversarial analysis on architectural approaches. |
+| `fiddle:docs-discover` | Bootstrap or review curated project docs (VISION, MARKET, SYSTEM, etc). |
+| `fiddle:docs-evolve` | Update technical docs, create ADRs, and append to BACKLOG after shipping. |
+| `fiddle:bean-decomposition` | Apply task sizing rules when decomposing plans into beans. |
+| `fiddle:develop-subs` | Ralph agent prompt for parallel bean implementation with subagents. |
+| `fiddle:develop-team` | Ralph agent prompt for team-based parallel implementation variant. |
+| `fiddle:adr` | Create an architecture decision record. |
+| `fiddle:feedback` | Append a user feedback signal to the feedback log. |
+| `fiddle:backlog` | Append an idea, tech debt, or observation to the backlog. |
+| `fiddle:patch-superpowers` | Re-apply beans integration patches after superpowers updates. |
+| `fiddle:init` | Auto-detect and configure external providers (Codex, Gemini). |
 
 ## Configuration
 
-Orchestrate reads `.claude/orchestrate.conf` (HCL) from your project root. All blocks are optional — defaults apply when omitted.
+Orchestrate reads `orchestrate.conf` (HCL) from the project root. Phase skills also read it for standalone defaults. All blocks are optional — defaults apply when omitted.
 
 ```hcl
 providers {
