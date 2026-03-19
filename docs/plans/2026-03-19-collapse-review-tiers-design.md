@@ -28,7 +28,7 @@ Cycle 2+ behavior unchanged: use only reviewers from the bean's `flagged-by:*` t
 1. **Build Reviewer Prompts** — for each reviewer, read `reviewer.md` as base. If domain expert, append agent definition under `## Domain Expertise`. If `baseline` (fallback), use reviewer.md as-is.
 2. **Spawn Reviewers** — all reviewers in parallel, all at `models.develop`.
 3. **Collect & Aggregate** — wait for all results. Classify: APPROVED / APPROVED WITH COMMENTS / ISSUES / empty=implicit APPROVED.
-4. **Return Verdict** — same format. References to "Tier-1"/"Tier-2" removed from verdict text.
+4. **Return Verdict** — same format. Replace tier references in verdict text: `"Tier-1 ({N} reviewers) and tier-2 all clean."` → `"{N} reviewer(s) all clean."`
 
 ### Reviewer Prompt
 
