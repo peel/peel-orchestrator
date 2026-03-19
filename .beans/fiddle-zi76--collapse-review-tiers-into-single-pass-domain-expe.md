@@ -1,10 +1,11 @@
 ---
 # fiddle-zi76
 title: Collapse review tiers into single-pass domain-expert review
-status: todo
+status: completed
 type: epic
+priority: normal
 created_at: 2026-03-19T11:43:58Z
-updated_at: 2026-03-19T11:43:58Z
+updated_at: 2026-03-19T12:07:25Z
 ---
 
 Plan: docs/plans/2026-03-19-collapse-review-tiers.md

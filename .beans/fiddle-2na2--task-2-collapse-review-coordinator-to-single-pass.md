@@ -1,12 +1,16 @@
 ---
 # fiddle-2na2
 title: 'Task 2: Collapse review coordinator to single pass'
-status: todo
+status: completed
 type: task
+priority: normal
 tags:
+    - agent:implementer
+    - reviewers:baseline
+    - worktree-slot:fiddle-zi76-worker-2
     - worktree
 created_at: 2026-03-19T11:44:24Z
-updated_at: 2026-03-19T11:44:24Z
+updated_at: 2026-03-19T11:54:25Z
 parent: fiddle-zi76
 ---
 

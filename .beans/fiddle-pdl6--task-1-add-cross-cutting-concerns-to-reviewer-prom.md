@@ -1,12 +1,16 @@
 ---
 # fiddle-pdl6
 title: 'Task 1: Add cross-cutting concerns to reviewer prompt'
-status: todo
+status: completed
 type: task
+priority: normal
 tags:
+    - reviewers:baseline
+    - worktree-slot:fiddle-zi76-worker-1
     - worktree
+    - agent:implementer
 created_at: 2026-03-19T11:44:13Z
-updated_at: 2026-03-19T11:44:13Z
+updated_at: 2026-03-19T11:53:21Z
 parent: fiddle-zi76
 ---
 
@@ -28,3 +32,7 @@ Cross-Cutting Concerns checklist to add:
 - Data migrations: schema changes, state format changes, or data loss risks?
 - Dependency changes: new dependencies added, versions bumped, or removals?
 - Observability: logging, error messages, or monitoring affected?
+
+## Progress
+- 12:49 edit: added Cross-Cutting Concerns section to develop-subs/roles/reviewer.md
+- 12:49 edit: added Cross-Cutting Concerns section to develop-team/roles/reviewer.md

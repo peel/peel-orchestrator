@@ -1,12 +1,16 @@
 ---
 # fiddle-3gqb
 title: 'Task 4: Update config docs and SYSTEM.md'
-status: todo
+status: completed
 type: task
+priority: normal
 tags:
+    - worktree-slot:fiddle-zi76-worker-2
     - worktree
+    - agent:implementer
+    - reviewers:baseline
 created_at: 2026-03-19T11:44:45Z
-updated_at: 2026-03-19T11:44:45Z
+updated_at: 2026-03-19T11:58:37Z
 parent: fiddle-zi76
 ---
 
@@ -23,3 +27,5 @@ Steps:
 - [ ] Update SYSTEM.md: fix Ralph description ("tiered review (haiku then sonnet)" → "single-pass domain-expert review (baseline fallback when no experts match)"), update Last reviewed date to 2026-03-19
 - [ ] Verify all three files: no models.develop.standard/lite, no tier-1/tier-2/haiku/sonnet refs, one develop row in model defaults
 - [ ] Commit
+
+Updated all three files: develop/SKILL.md (merged model config lines, updated ralph spawn comment), orchestrate/SKILL.md (collapsed model defaults table, flattened config example, updated provider rationale, updated config parsing), SYSTEM.md (updated Ralph description). Verified no stale references remain.
