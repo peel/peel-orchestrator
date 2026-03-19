@@ -246,6 +246,22 @@ beans roadmap
 
 Check: bean bodies contain full task steps (not just "See plan"), valid DAG, ready beans exist, each bean sized for one session.
 
+**Coverage check:** Spawn a subagent to verify beans cover the full design with no gaps:
+
+\```
+Agent(
+  subagent_type: "general-purpose",
+  mode: "bypassPermissions",
+  prompt: "Read the design doc at <spec-path> and the bean list from `beans list --parent <epic-id> --json`. Verify:
+    1. Every requirement in the design has at least one bean covering it
+    2. No design section is missing bean coverage
+    3. Bean descriptions match the design intent (not drifted)
+    Report: covered requirements, gaps found, and any drift."
+)
+\```
+
+If gaps are found, create additional beans to cover them. Re-run `beans roadmap` after fixes.
+
 **Commit beans to repository:**
 \```bash
 git add .beans/
