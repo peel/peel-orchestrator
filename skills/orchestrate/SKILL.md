@@ -78,10 +78,7 @@ models {
   # define   = "sonnet"
   # deliver  = "sonnet"
 
-  develop {
-    # standard = "sonnet"
-    lite = "sonnet"
-  }
+  # develop = "sonnet"
 }
 
 develop {
@@ -100,8 +97,7 @@ plans {
 |---|---|---|
 | models.discover | All DISCOVER subagents | "default" (session model) |
 | models.define | Panel advocates, brainstorming subagents | "default" |
-| models.develop.standard | Implementers, tier-2 review, ralph orchestrator | "default" |
-| models.develop.lite | Tier-1 review (quick pass) | "sonnet" |
+| models.develop | Implementers, reviewers, ralph orchestrator | "default" |
 | models.deliver | Drift analysis, docs review | "default" |
 
 "default" means inherit the session model — the agent omits the `model:` parameter so the parent's model is used. Omitted keys are treated as "default".
@@ -112,7 +108,7 @@ plans {
 |---|---|---|
 | DISCOVER | codex | Research depth from two code-oriented models |
 | DEFINE (panel) | codex, gemini | Maximum perspectives for architectural decisions |
-| DEVELOP (ralph) | none | Ralph's tiered review handles this |
+| DEVELOP (ralph) | none | Ralph's single-pass domain-expert review handles this |
 | DEVELOP (holistic) | codex | Outside perspective on the full epic |
 | DELIVER | codex | Drift detection and docs review |
 
@@ -134,7 +130,7 @@ Run this section immediately on invocation, before any phase.
 2. If `orchestrate.conf` exists (project root): read it with the Read tool. Parse each HCL block:
    - `providers {}` — override provider defaults for each phase
    - `ralph {}` — set workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
-   - `models {}` — override model defaults for each phase. Nested `develop {}` block contains `standard` and `lite` keys. "default" means omit the `model:` parameter to inherit the session model.
+   - `models {}` — override model defaults for each phase. `develop` is a string key. "default" means omit the `model:` parameter to inherit the session model.
 3. Parse CLI flags from `{ARGS}`. Override any config file values.
 4. Store final config values for use throughout the session.
 

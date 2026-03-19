@@ -26,8 +26,7 @@ Parse from `{ARGS}`:
 
 Read `orchestrate.conf` (project root) if it exists. Extract:
 - `ralph {}` block — workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
-- `models.develop.standard` — model for implementers, tier-2 review, ralph orchestrator
-- `models.develop.lite` — model for tier-1 review (default: "sonnet")
+- `models.develop` — model for implementers, reviewers, ralph orchestrator
 - `providers.develop_holistic` — provider list for holistic review (default: `["codex"]`)
 - Provider declarations for holistic review providers
 - `develop.execution` — pre-configured execution mode
@@ -88,7 +87,7 @@ The two variants use COMPLETELY DIFFERENT dispatch mechanisms. Do NOT mix them u
 ralph_task = Agent(
   name: "ralph-develop-<epic-id>",
   subagent_type: "general-purpose",
-  model: <models.develop.standard>,  # if "default", omit model parameter to inherit session model
+  model: <models.develop>,  # if "default", omit model parameter to inherit session model
   mode: "bypassPermissions",
   run_in_background: true,
   max_turns: <max_total_turns>,
