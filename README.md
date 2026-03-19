@@ -37,4 +37,18 @@ Orchestrate reads [`orchestrate.conf`](orchestrate.conf) (HCL) from the project 
 
 ## Install
 
-`claude --plugin-dir /path/to/fiddle` or `/plugin install fiddle` via [marketplace](https://github.com/peel/peel-marketplace). Providers are auto-detected on session start.
+Requires [superpowers](https://github.com/obra/superpowers) plugin.
+
+```bash
+# superpowers (dependency)
+/plugin install superpowers
+
+# fiddle — from marketplace
+/plugin marketplace add github:peel/peel-marketplace
+/plugin install fiddle
+
+# fiddle — from source
+claude --plugin-dir /path/to/fiddle
+```
+
+After install, run `/fiddle:patch-superpowers` to apply beans integration. Providers are auto-detected on session start.
