@@ -14,7 +14,7 @@
 
 **Files:**
 - Modify: `skills/develop-subs/roles/reviewer.md:73-77` (after Safety section)
-- Modify: `skills/develop-team/roles/reviewer.md:73-77` (after Safety section)
+- Modify: `skills/develop-team/roles/reviewer.md:67-71` (after Safety section)
 
 - [ ] **Step 1: Add Cross-Cutting Concerns section to develop-subs reviewer.md**
 
@@ -228,6 +228,24 @@ Also update the config file example. In the `models {}` block comment (around li
 To:
 ```hcl
   # develop = "sonnet"
+```
+
+Also update the Provider Defaults table (line 115). Change from:
+```
+| DEVELOP (ralph) | none | Ralph's tiered review handles this |
+```
+To:
+```
+| DEVELOP (ralph) | none | Ralph's single-pass domain-expert review handles this |
+```
+
+Also update the SETUP Step 1 config parsing (line 137). Change from:
+```
+   - `models {}` — override model defaults for each phase. Nested `develop {}` block contains `standard` and `lite` keys. "default" means omit the `model:` parameter to inherit the session model.
+```
+To:
+```
+   - `models {}` — override model defaults for each phase. `develop` is a string key. "default" means omit the `model:` parameter to inherit the session model.
 ```
 
 - [ ] **Step 3: Update SYSTEM.md**
