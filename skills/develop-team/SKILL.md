@@ -1,6 +1,6 @@
 ---
 name: fiddle:develop-team
-description: Execute beans tasks using agent teams with ralph loop pattern. Implementers and review coordinators are teammates; coordinators encapsulate the full tier-1/tier-2 review pipeline and report a single verdict. Supports configurable parallelism.
+description: Execute beans tasks using agent teams with ralph loop pattern. Implementers and review coordinators are teammates; coordinators manage the review pipeline and report a single verdict. Supports configurable parallelism.
 disable-model-invocation: true
 argument-hint: [--epic <id>] [--workers 10] [--max-review-cycles 10] [--max-impl-turns 100] [--max-review-turns 100]
 ---
@@ -38,7 +38,7 @@ Flags (all optional, order-independent):
 
 ## Every Turn: Assess and Act
 
-Every bean goes through: **implement** → **review** (coordinator handles tier-1 + tier-2 internally).
+Every bean goes through: **implement** → **review** (coordinator handles review internally).
 
 Run `BEANS_LIST`. Then:
 
@@ -117,7 +117,7 @@ Both implementers and review coordinators are teammates (spawned with `team_name
 Task(
   name: "impl-{bean-slug}[-fix{cycle}]",
   subagent_type: "general-purpose",
-  model: <models.develop.standard>,  # from orchestrate.conf; if "default", omit to inherit session model
+  model: <models.develop>,  # from orchestrate.conf; if "default", omit to inherit session model
   mode: "bypassPermissions",
   team_name: <team>,
   run_in_background: true,
@@ -128,7 +128,7 @@ Task(
 
 ### Review Coordinator Spawn
 
-**Cycle 1:** Auto-select ALL domain agents relevant to the bean (match bean title/description/type against agent descriptions discovered at startup). Always include `baseline`.
+**Cycle 1:** Auto-select domain agents relevant to the bean (match bean title/description/type against agent descriptions discovered at startup). If no domain agents match, use `baseline` as fallback.
 **Cycle 2+:** Use only the reviewers from the bean's `flagged-by:*` tag (set by previous verdict).
 
 1. Read `.claude/skills/develop-team/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
@@ -137,7 +137,7 @@ Task(
 Task(
   name: "review-{bean-slug}-c{cycle}",
   subagent_type: "general-purpose",
-  model: <models.develop.standard>,  # from orchestrate.conf; if "default", omit to inherit session model
+  model: <models.develop>,  # from orchestrate.conf; if "default", omit to inherit session model
   mode: "bypassPermissions",
   team_name: <team>,
   run_in_background: true,
@@ -150,7 +150,7 @@ Task(
 
 - Always `run_in_background: true` — never block on Task calls
 - The lead spawns only two kinds of agents: **implementers** and **review coordinators**. Both are teammates (`team_name` present). The lead never spawns reviewers directly — the coordinator handles that.
-- Models: implementers=models.develop.standard, coordinators=models.develop.standard (tier-1 reviewers=models.develop.lite, tier-2=models.develop.standard internally), epic holistic review=opus. Read model config from orchestrate.conf; "default" means omit model parameter to inherit session model.
+- Models: implementers=models.develop, coordinators=models.develop (reviewers=models.develop internally), epic holistic review=opus. Read model config from orchestrate.conf; "default" means omit model parameter to inherit session model.
 - Fresh context: one coordinator per bean per review cycle — never resume coordinators
 - Fresh implementer context per cycle — never resume implementers
 - Never implement beans yourself — delegate only
