@@ -70,13 +70,19 @@ Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume
 
 ### Step 2: Spawn Ralph
 
-Read the ralph skill file to build the prompt. Which skill depends on the execution choice:
+Which variant depends on the execution choice:
 - **Ralph Subs (option 1):** `../develop-subs/SKILL.md` (resolve relative to this skill's base directory)
 - **Tmux Team (option 2):** `../develop-team/SKILL.md`
 
 Use the Read tool to load the SKILL.md file. Do NOT use the Skill tool — these skills have `disable-model-invocation` since they are agent prompts, not directly invocable skills.
 
-Spawn ralph as a background subagent with fresh context:
+<HARD-GATE>
+The two variants use COMPLETELY DIFFERENT dispatch mechanisms. Do NOT mix them up.
+- Ralph Subs → spawn as a background **subagent** via `Agent()`
+- Tmux Team → execute **inline in this session** (it needs TeamCreate/SendMessage which only work in the main session)
+</HARD-GATE>
+
+**Ralph Subs dispatch:**
 
 ```
 ralph_task = Agent(
@@ -86,7 +92,7 @@ ralph_task = Agent(
   mode: "bypassPermissions",
   run_in_background: true,
   max_turns: <max_total_turns>,
-  prompt: "<contents of ralph SKILL.md, with the following args substituted:>
+  prompt: "<contents of develop-subs/SKILL.md, with the following args substituted:>
     --epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>
     --max-impl-turns <max_impl_turns> --max-review-turns <max_review_turns>
     --ci-max-retries <ci_max_retries> --stall-timeout-min <stall_timeout_min>
@@ -94,16 +100,30 @@ ralph_task = Agent(
 )
 ```
 
-For `critical` and `high` priority beans: include in the prompt an instruction for the review coordinator to additionally request a code review from configured DEVELOP providers via the provider-dispatch procedure.
-
 Wait for the result:
 ```
 result = TaskOutput(task_id: ralph_task.id, block: true, timeout: 3600000)
 ```
 
+**Tmux Team dispatch:**
+
+Read develop-team/SKILL.md and follow its instructions directly in this session. You ARE the team lead. Execute the Setup, then the "Assess and Act" loop. The SKILL.md uses TeamCreate, TaskCreate, and SendMessage — these only work in the main session, NOT inside a subagent.
+
+Pass these args to the instructions:
+```
+--epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>
+--max-impl-turns <max_impl_turns> --max-review-turns <max_review_turns>
+```
+
+When all beans are complete or parked, proceed to Step 3.
+
+For `critical` and `high` priority beans (either variant): include in the prompt an instruction for the review coordinator to additionally request a code review from configured DEVELOP providers via the provider-dispatch procedure.
+
 ### Step 3: Handle Ralph Result
 
-Parse the `result` from Step 2:
+**Tmux Team:** You are already in the session — skip parsing. If all beans are complete, proceed to Step 4. If beans are parked with `needs-attention`, present them to the user (same as Case 2 below). After the user addresses them, loop back to Step 2 and resume the develop-team instructions.
+
+**Ralph Subs:** Parse the `result` from Step 2:
 
 **Case 1 — `RALPH_STATUS: COMPLETE`:**
 Ralph finished all beans successfully. Proceed to Step 4 (Holistic Review).
