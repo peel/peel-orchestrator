@@ -69,6 +69,12 @@ Do NOT run tests or build yourself. Use the file contents as evidence. If the ou
 - No secrets committed?
 - No breaking changes to API contracts or schema?
 
+### Cross-Cutting Concerns
+- Backward compatibility: any breaking changes to public APIs, CLI flags, config schema, or file formats?
+- Data migrations: schema changes, state format changes, or data loss risks?
+- Dependency changes: new dependencies added, versions bumped, or removals?
+- Observability: logging, error messages, or monitoring affected?
+
 ## Previous Review Issues
 
 If this is cycle 2+, verify the previous issues were addressed:
