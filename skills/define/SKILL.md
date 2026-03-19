@@ -1,7 +1,7 @@
 ---
 name: fiddle:define
-description: Run the DEFINE phase — brainstorm approaches with optional panel enrichment, stress-test chosen design via grill, create implementation plan and beans. Use standalone or as part of orchestrate.
-argument-hint: <topic> [--skip-grill] [--skip-panel] [--providers codex,gemini]
+description: Run the DEFINE phase — brainstorm approaches with optional panel enrichment, challenge chosen design, create implementation plan and beans. Use standalone or as part of orchestrate.
+argument-hint: <topic> [--skip-challenge] [--skip-panel] [--providers codex,gemini]
 ---
 
 # Define
@@ -16,7 +16,7 @@ Parse from `{ARGS}`:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--skip-grill` | false | Skip the grill step after design approval |
+| `--skip-challenge` | false | Skip the challenge step after design approval |
 | `--skip-panel` | false | Skip panel enrichment during brainstorming |
 | `--providers <list>` | from config | Override provider list for this phase |
 
@@ -46,16 +46,16 @@ This explores intent, asks questions, proposes 2-3 approaches, runs panel enrich
 
 ### Step 2: Grill Design
 
-Skip if `--skip-grill` was set.
+Skip if `--skip-challenge` was set.
 
-Invoke the grill skill to stress-test the chosen design:
+Invoke the challenge skill to stress-test the chosen design:
 ```
-Skill(skill: "fiddle:grill", args: "--phase define")
+Skill(skill: "fiddle:challenge", args: "--phase define")
 ```
 
 This walks the decision tree on edge cases, integration points, failure modes, panel dissent points, and sizing assumptions. Catches design holes before they become wasted beans.
 
-If grilling surfaces issues that require design changes, update the design doc in `docs/plans/` and commit the changes before proceeding.
+If challenges surface issues that require design changes, update the design doc and commit the changes before proceeding.
 
 ### Step 3: Implementation Planning
 

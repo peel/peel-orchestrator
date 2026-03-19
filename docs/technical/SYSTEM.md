@@ -16,11 +16,13 @@ Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecy
 
 **Hooks** (`hooks/`) — `session-start-check-providers.sh` checks CLI provider binaries are on PATH on session start and nudges `/fiddle:init` if missing. `task-completed-verify.sh` gates task completion with build/test verification (go build, go test, flutter test). Dispatched via `run-hook.cmd` (cross-platform polyglot wrapper).
 
-**Supporting skills** — `discover-docs` (project context scan), `deliver-docs` (post-ship doc updates), `define-bean-decomposition` (task sizing), `adr`/`feedback`/`backlog` (append-only records).
+**Challenge** (`skills/challenge/SKILL.md`) — Decision-tree interrogation skill. Walks every branch of a plan or design until shared understanding is reached. Phase-aware: in DISCOVER, opens by synthesizing findings and confirming scope; in DEFINE, challenges design edge cases and panel dissent. Also usable standalone.
+
+**Supporting skills** — `discover-docs` (project context scan), `deliver-docs` (post-ship doc updates), `define-beans` (task sizing), `adr`/`feedback`/`backlog` (append-only records).
 
 ## Data
 
-**`orchestrate.conf`** (HCL) — Declares which external providers are used per phase. All ralph settings (worker counts, review cycle limits, turn budgets, reaction thresholds) live in a single `ralph {}` block. Merge order: defaults, config file, CLI flags.
+**`orchestrate.conf`** (HCL) — Declares which external providers are used per phase. All ralph settings (worker counts, review cycle limits, turn budgets, reaction thresholds) live in a single `ralph {}` block. The `plans {}` block controls where superpowers saves plans/specs and whether to commit them. Merge order: defaults, config file, CLI flags.
 
 **`.claude/orchestrate-events.log`** — Ephemeral event log created during orchestrate runs. Tracks phase transitions, failures, escalations. Deleted on cleanup.
 
@@ -46,5 +48,5 @@ Runs entirely locally as a Claude Code plugin. No server, no cloud, no CI. Insta
 None currently identified.
 
 ---
-Last reviewed: 2026-03-15
+Last reviewed: 2026-03-19
 

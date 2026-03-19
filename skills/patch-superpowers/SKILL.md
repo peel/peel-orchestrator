@@ -142,8 +142,8 @@ With:
 With:
 
 ```
-- Read `orchestrate.conf` (project root). If `plans.specs_path` is set, use that directory. Otherwise use `docs/superpowers/specs`.
-- Write the validated design (spec) to `{specs_path}/YYYY-MM-DD-<topic>-design.md`
+- Read `orchestrate.conf` (project root). If `plans.path` is set, use `{plans.path}/specs`. Otherwise use `docs/superpowers/specs`.
+- Write the validated design (spec) to `{specs_dir}/YYYY-MM-DD-<topic>-design.md`
   - (User preferences for spec location override both config and defaults)
 - If `orchestrate.conf` has `plans.commit = false`, skip the git commit of the spec file.
 ```
@@ -184,10 +184,10 @@ Parse from `{ARGS}`:
 ### Plans Config
 
 Read `orchestrate.conf` (project root) if it exists. Extract from `plans {}` block:
-- `plans.path` — plan save directory (default: `docs/superpowers/plans`)
+- `plans.path` — parent directory for specs and plans (default: `docs/superpowers`)
 - `plans.commit` — whether to git commit plan/spec files (default: `true`)
 
-**Save plans to:** `{plans.path}/YYYY-MM-DD-<feature-name>.md` (resolved from config or superpowers default).
+**Save plans to:** `{plans.path}/plans/YYYY-MM-DD-<feature-name>.md` (resolved from config or superpowers default).
 - User preferences for plan location override both config and defaults.
 - If `plans.commit` is false, skip all `git add` and `git commit` steps for plan documents.
 ```
@@ -199,7 +199,7 @@ Read `orchestrate.conf` (project root) if it exists. Extract from `plans {}` blo
 
 After saving the plan, create beans tasks from it. Beans are state-tracked pointers back to the plan.
 
-**Bean sizing:** For each `### Task N:` heading, follow the `define-bean-decomposition` skill to determine if it should be a task bean (1-2 TDD cycles) or a feature bean with child tasks (3+ TDD cycles).
+**Bean sizing:** For each `### Task N:` heading, follow the `define-beans` skill to determine if it should be a task bean (1-2 TDD cycles) or a feature bean with child tasks (3+ TDD cycles).
 
 Bean descriptions MUST be self-contained — include the complete step-by-step instructions from the plan so that automated agents can work from the bean body alone without reading the plan file. The plan file path is included for human reference only.
 
@@ -340,7 +340,7 @@ Append marker: `<!-- [BEANS-PATCHED] -->`
 
 Read all three patched files and confirm:
 - Brainstorming → has ARGS line with `--skip-panel` and `--from-orchestrate` flags, checklist has panel enrichment item, process flow has panel and `--from-orchestrate` nodes (intercepting after spec review), terminal state is flag-dependent, spec path is config-aware
-- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.conf` for `plans.path` and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
+- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.conf` for `plans.path` (parent dir) and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
 - Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets
 - All three have `[BEANS-PATCHED]` marker
 

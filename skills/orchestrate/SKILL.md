@@ -1,8 +1,7 @@
 ---
 name: fiddle:orchestrate
 description: Use when starting a full development lifecycle for a feature or epic — chains discover, define, develop, deliver phases with multi-model support and reaction engine
-disable-model-invocation: true
-argument-hint: <topic> [--epic <id>] [--skip-discover] [--skip-grill] [--providers codex,gemini]
+argument-hint: <topic> [--epic <id>] [--skip-discover] [--skip-challenge] [--providers codex,gemini]
 ---
 
 # Orchestrate
@@ -24,7 +23,7 @@ Parse from `{ARGS}`:
 | `--epic <id>` | none | Resume an existing epic. Skips DISCOVER/DEFINE if beans exist |
 | `--skip-discover` | false | Jump straight to DEFINE |
 | `--skip-docs` | false | Passed through to discover phase — skip discover-docs |
-| `--skip-grill` | false | Passed through to discover and define phases |
+| `--skip-challenge` | false | Passed through to discover and define phases |
 | `--skip-panel` | false | Passed through to define phase |
 | `--providers <list>` | per-phase defaults | Global provider override (comma-separated) |
 | `--discover-providers <list>` | codex | Override DISCOVER phase providers |
@@ -90,9 +89,8 @@ develop {
 }
 
 plans {
-  # path       = "docs/plans"    // override superpowers default (docs/superpowers/plans)
-  # specs_path = "docs/specs"    // override superpowers default (docs/superpowers/specs)
-  # commit     = true            // whether to git commit plan/spec files (default: true)
+  # path   = "docs"              // parent dir for specs/ and plans/ (default: docs/superpowers)
+  # commit = true                // whether to git commit plan/spec files (default: true)
 }
 ```
 
@@ -192,7 +190,7 @@ Build args for the discover phase:
 - `<topic>`
 - `--providers <discover-providers>` (if overridden from defaults)
 - `--skip-docs` (if set)
-- `--skip-grill` (if set)
+- `--skip-challenge` (if set)
 
 Invoke:
 ```
@@ -213,7 +211,7 @@ Fall through to DEFINE.
 Build args for the define phase:
 - `<topic>`
 - `--providers <define-providers>` (if overridden from defaults)
-- `--skip-grill` (if set)
+- `--skip-challenge` (if set)
 - `--skip-panel` (if set)
 
 Invoke:

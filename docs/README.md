@@ -2,7 +2,7 @@
 
 Living docs for product and technical decisions. Persistent knowledge that informs all work — separate from beans (actionable work) and plans (session-scoped execution).
 
-**Flow:** `/discover-docs` → `superpowers:brainstorming` → `beans` → `superpowers:writing-plans` → `/develop-subs` → `/deliver-docs`
+**Flow:** `/discover-docs` → `/challenge` → `superpowers:brainstorming` → `/panel` → `/challenge` → `superpowers:writing-plans` → beans → `/develop` → `/deliver-docs`
 
 ## Structure
 

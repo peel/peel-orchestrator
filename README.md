@@ -7,30 +7,30 @@ Claude Code plugin for automated development lifecycle. Chains discover, define,
 `/fiddle:orchestrate <topic>` runs the full lifecycle. Each phase is an independent skill that can also be invoked standalone:
 
 ```
-DISCOVER  (/fiddle:discover)
-  └─ fiddle:discover-docs       — scan project docs, code, beans
-  └─ external providers         — ecosystem research (optional)
-  └─ Socratic dialogue          — confirm scope with user
-  └─ fiddle:grill --phase discover — stress-test scope assumptions
+DISCOVER  /fiddle:discover
+  1. fiddle:discover-docs        — scan project docs, code, beans
+  2. external providers          — ecosystem research (codex, optional)
+  3. fiddle:challenge --phase discover — confirm scope, challenge assumptions
 
-DEFINE  (/fiddle:define)
-  └─ superpowers:brainstorming  — explore intent, produce 2-3 approaches
-  └─ fiddle:panel               — adversarial debate across models
-  └─ fiddle:grill --phase define — stress-test chosen design
-  └─ superpowers:writing-plans  — implementation plan + bean decomposition
-     └─ fiddle:define-bean-decomposition — task sizing rules
+DEFINE  /fiddle:define
+  1. superpowers:brainstorming   — explore intent, propose approaches
+     · fiddle:panel              — multi-model adversarial debate (optional)
+  2. fiddle:challenge --phase define — stress-test chosen design
+  3. superpowers:writing-plans   — implementation plan → beans
+     · fiddle:define-beans — task sizing rules
 
-DEVELOP  (/fiddle:develop)
-  └─ fiddle:develop-subs        — parallel bean implementation
-     └─ implementers (sonnet)   — write code in worktrees
-     └─ review coordinators     — tiered review (haiku → sonnet)
-  └─ reaction engine            — CI failure, stall, review overflow detection
-  └─ holistic review (opus)     — cross-bean consistency check
+DEVELOP  /fiddle:develop
+  User picks execution mode:
+  · develop-subs                — background subagents (ralph)
+  · develop-team                — tmux team workers (ralph)
+  · hands-on                    — superpowers:subagent-driven-development
+  · hands-on parallel           — superpowers:executing-plans in new session
+  Then: holistic review          — cross-bean consistency (codex, optional)
 
-DELIVER  (/fiddle:deliver)
-  └─ external providers         — drift analysis vs design doc (optional)
-  └─ fiddle:deliver-docs         — update SYSTEM.md, ADRs, BACKLOG
-  └─ close epic
+DELIVER  /fiddle:deliver
+  1. drift analysis              — design vs implementation (codex, optional)
+  2. fiddle:deliver-docs         — update SYSTEM.md, ADRs, BACKLOG
+  3. close epic
 ```
 
 ## All Skills
@@ -51,13 +51,11 @@ Independently invocable phases. Orchestrate sequences them, but each works stand
 
 | Skill | Use when you want to... |
 |-------|------------------------|
-| `fiddle:grill` | Stress-test any plan or design by walking every branch of the decision tree. |
+| `fiddle:challenge` | Challenge any plan or design by walking every branch of the decision tree. |
 | `fiddle:panel` | Get multi-model adversarial analysis on architectural approaches. |
 | `fiddle:discover-docs` | Bootstrap or review curated project docs (VISION, MARKET, SYSTEM, etc). |
 | `fiddle:deliver-docs` | Update technical docs, create ADRs, and append to BACKLOG after shipping. |
-| `fiddle:define-bean-decomposition` | Apply task sizing rules when decomposing plans into beans. |
-| `fiddle:develop-subs` | Ralph agent prompt for parallel bean implementation with subagents. |
-| `fiddle:develop-team` | Ralph agent prompt for team-based parallel implementation variant. |
+| `fiddle:define-beans` | Apply task sizing rules when decomposing plans into beans. |
 | `fiddle:adr` | Create an architecture decision record. |
 | `fiddle:feedback` | Append a user feedback signal to the feedback log. |
 | `fiddle:backlog` | Append an idea, tech debt, or observation to the backlog. |
@@ -91,9 +89,8 @@ reaction {
 }
 
 plans {
-  # path       = "docs/plans"    # override superpowers default
-  # specs_path = "docs/specs"    # override superpowers default
-  # commit     = true            # whether to commit plan/spec files
+  # path   = "docs"              # parent dir for specs/ and plans/ (default: docs/superpowers)
+  # commit = true                # whether to commit plan/spec files
 }
 ```
 

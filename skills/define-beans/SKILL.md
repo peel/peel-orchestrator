@@ -1,9 +1,9 @@
 ---
-name: fiddle:define-bean-decomposition
+name: fiddle:define-beans
 description: Bean sizing rules for writing-plans. Determines when a plan task should become a feature with child task beans based on TDD cycle budget.
 ---
 
-# Define Bean Decomposition
+# Define Beans
 
 ## When to Use
 
@@ -28,14 +28,14 @@ When a plan task needs 3+ cycles:
 
 1. Create a **feature** bean for the group:
    ```bash
-   beans create "Task N: <group title>" --json -t feature -s todo -p <priority> --parent <epic-id> --tag branch -d "Plan: docs/plans/<filename>.md Task N
+   beans create "Task N: <group title>" --json -t feature -s todo -p <priority> --parent <epic-id> --tag branch -d "Plan: <plan-path> Task N
 
    <overall goal from the plan task>"
    ```
 
 2. Create a **task** bean per behavior under the feature:
    ```bash
-   beans create "Task Na: <specific behavior>" --json -t task -s todo --parent <feature-id> --tag branch -d "Plan: docs/plans/<filename>.md Task N, step group a
+   beans create "Task Na: <specific behavior>" --json -t task -s todo --parent <feature-id> --tag branch -d "Plan: <plan-path> Task N, step group a
 
    Files:
    - <relevant files for this behavior only>
