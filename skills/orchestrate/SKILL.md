@@ -23,7 +23,7 @@ Parse from `{ARGS}`:
 |---|---|---|
 | `--epic <id>` | none | Resume an existing epic. Skips DISCOVER/DEFINE if beans exist |
 | `--skip-discover` | false | Jump straight to DEFINE |
-| `--skip-docs` | false | Passed through to discover phase — skip docs-discover |
+| `--skip-docs` | false | Passed through to discover phase — skip discover-docs |
 | `--skip-grill` | false | Passed through to discover and define phases |
 | `--skip-panel` | false | Passed through to define phase |
 | `--providers <list>` | per-phase defaults | Global provider override (comma-separated) |
@@ -87,6 +87,12 @@ models {
 
 develop {
   # execution = "develop-subs"  // or "tmux-team", "hands-on", "hands-on-parallel"
+}
+
+plans {
+  # path       = "docs/plans"    // override superpowers default (docs/superpowers/plans)
+  # specs_path = "docs/specs"    // override superpowers default (docs/superpowers/specs)
+  # commit     = true            // whether to git commit plan/spec files (default: true)
 }
 ```
 
@@ -166,8 +172,8 @@ beans list --parent <epic-id> --json
 
 - **No child beans exist** → start at DEFINE
 - **Child beans in `todo` or `in-progress`** → start at DEVELOP
-- **All child beans `completed` or tagged `needs-attention`, AND no commit message containing "docs-evolve"** → start at DELIVER
-- **Docs already evolved** (check `git log --oneline --grep="docs-evolve"`) → DONE. Report completion.
+- **All child beans `completed` or tagged `needs-attention`, AND no commit message containing "deliver-docs"** → start at DELIVER
+- **Docs already evolved** (check `git log --oneline --grep="deliver-docs"`) → DONE. Report completion.
 
 If no `--epic` was provided, start at DISCOVER (or DEFINE if `--skip-discover`).
 
@@ -295,4 +301,4 @@ Report to user:
 - <M> beans needs-attention (unresolved)"
 ```
 
-Remind the user: "Run `/fiddle:docs-evolve --epic <epic-id>` to update project docs." (if docs-evolve was not already run in DELIVER).
+Remind the user: "Run `/fiddle:deliver-docs --epic <epic-id>` to update project docs." (if deliver-docs was not already run in DELIVER).

@@ -29,7 +29,7 @@ The core behavior is always the same: systematically walk the decision tree, res
 
 ### `--phase discover`
 
-**Grilling target:** Scope, assumptions, and constraints surfaced during docs-discover.
+**Grilling target:** Scope, assumptions, and constraints surfaced during discover-docs.
 
 **Context to gather before starting:**
 - Read curated docs in `docs/product/` and `docs/technical/` (whatever exists)

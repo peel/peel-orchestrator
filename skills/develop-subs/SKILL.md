@@ -115,7 +115,7 @@ Check for `needs-attention` beans: `beans list --parent <epic-id> --json` and fi
     RALPH_STATUS: COMPLETE
     Completed: <N> beans, Needs-attention: <M> beans
     ```
-  - If no `--caller` flag: remind the user: "Epic complete. Run `/fiddle:docs-evolve --epic <id>` to update project docs."
+  - If no `--caller` flag: remind the user: "Epic complete. Run `/fiddle:deliver-docs --epic <id>` to update project docs."
 
 ## When a Background Task Completes
 

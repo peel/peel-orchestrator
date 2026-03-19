@@ -8,7 +8,7 @@ Claude Code plugin for automated development lifecycle. Chains discover, define,
 
 ```
 DISCOVER  (/fiddle:discover)
-  └─ fiddle:docs-discover       — scan project docs, code, beans
+  └─ fiddle:discover-docs       — scan project docs, code, beans
   └─ external providers         — ecosystem research (optional)
   └─ Socratic dialogue          — confirm scope with user
   └─ fiddle:grill --phase discover — stress-test scope assumptions
@@ -18,7 +18,7 @@ DEFINE  (/fiddle:define)
   └─ fiddle:panel               — adversarial debate across models
   └─ fiddle:grill --phase define — stress-test chosen design
   └─ superpowers:writing-plans  — implementation plan + bean decomposition
-     └─ fiddle:bean-decomposition — task sizing rules
+     └─ fiddle:define-bean-decomposition — task sizing rules
 
 DEVELOP  (/fiddle:develop)
   └─ fiddle:develop-subs        — parallel bean implementation
@@ -29,7 +29,7 @@ DEVELOP  (/fiddle:develop)
 
 DELIVER  (/fiddle:deliver)
   └─ external providers         — drift analysis vs design doc (optional)
-  └─ fiddle:docs-evolve         — update SYSTEM.md, ADRs, BACKLOG
+  └─ fiddle:deliver-docs         — update SYSTEM.md, ADRs, BACKLOG
   └─ close epic
 ```
 
@@ -53,9 +53,9 @@ Independently invocable phases. Orchestrate sequences them, but each works stand
 |-------|------------------------|
 | `fiddle:grill` | Stress-test any plan or design by walking every branch of the decision tree. |
 | `fiddle:panel` | Get multi-model adversarial analysis on architectural approaches. |
-| `fiddle:docs-discover` | Bootstrap or review curated project docs (VISION, MARKET, SYSTEM, etc). |
-| `fiddle:docs-evolve` | Update technical docs, create ADRs, and append to BACKLOG after shipping. |
-| `fiddle:bean-decomposition` | Apply task sizing rules when decomposing plans into beans. |
+| `fiddle:discover-docs` | Bootstrap or review curated project docs (VISION, MARKET, SYSTEM, etc). |
+| `fiddle:deliver-docs` | Update technical docs, create ADRs, and append to BACKLOG after shipping. |
+| `fiddle:define-bean-decomposition` | Apply task sizing rules when decomposing plans into beans. |
 | `fiddle:develop-subs` | Ralph agent prompt for parallel bean implementation with subagents. |
 | `fiddle:develop-team` | Ralph agent prompt for team-based parallel implementation variant. |
 | `fiddle:adr` | Create an architecture decision record. |
@@ -88,6 +88,12 @@ reaction {
   ci_max_retries      = 3
   stall_timeout_min   = 15
   stall_max_respawns  = 2
+}
+
+plans {
+  # path       = "docs/plans"    # override superpowers default
+  # specs_path = "docs/specs"    # override superpowers default
+  # commit     = true            # whether to commit plan/spec files
 }
 ```
 

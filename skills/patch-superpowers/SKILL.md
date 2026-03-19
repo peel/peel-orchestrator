@@ -50,20 +50,20 @@ Parse from `{ARGS}`:
 | `--from-orchestrate` | false | Return control after design doc instead of chaining to writing-plans |
 ```
 
-**3b.** In the Checklist section, replace item 3:
+**3b.** In the Checklist section, replace item 4:
 
 ```
-3. **Propose 2-3 approaches** — with trade-offs and your recommendation
+4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 ```
 
 With:
 
 ```
-3. **Propose 2-3 approaches** — with trade-offs and your recommendation
-4. **Panel enrichment** — if `--skip-panel` not set and external providers available (codex MCP tool or gemini on PATH), invoke `fiddle:panel` with the proposed approaches. Present panel commentary (consensus, disagreements, tradeoffs) alongside the approaches when asking the user to pick.
+4. **Propose 2-3 approaches** — with trade-offs and your recommendation
+5. **Panel enrichment** — if `--skip-panel` not set and external providers available (codex MCP tool or gemini on PATH), invoke `fiddle:panel` with the proposed approaches. Present panel commentary (consensus, disagreements, tradeoffs) alongside the approaches when asking the user to pick.
 ```
 
-Renumber subsequent items (old 4→5, 5→6, 6→7).
+Renumber subsequent items (old 5→6, 6→7, 7→8, 8→9, 9→10).
 
 **3c.** In the Process Flow graph, insert the panel enrichment node. Replace:
 
@@ -84,16 +84,16 @@ Add the node declaration:
     "Panel enrichment?" [shape=diamond];
 ```
 
-**3d.** In the Process Flow graph, replace the terminal state. Replace:
+**3d.** In the Process Flow graph, replace the terminal transition. Replace:
 
 ```
-    "Write design doc" -> "Invoke writing-plans skill";
+    "User reviews spec?" -> "Invoke writing-plans skill" [label="approved"];
 ```
 
 With:
 
 ```
-    "Write design doc" -> "--from-orchestrate?" [label="check flag"];
+    "User reviews spec?" -> "--from-orchestrate?" [label="approved"];
     "--from-orchestrate?" -> "STOP" [label="flag set"];
     "--from-orchestrate?" -> "Invoke writing-plans skill" [label="flag not set"];
 ```
@@ -132,6 +132,22 @@ With:
 - If not set: invoke the writing-plans skill to create a detailed implementation plan. Do NOT invoke any other skill.
 ```
 
+**3g.** Patch the spec save path to be config-aware. Replace:
+
+```
+- Write the validated design (spec) to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
+  - (User preferences for spec location override this default)
+```
+
+With:
+
+```
+- Read `orchestrate.conf` (project root). If `plans.specs_path` is set, use that directory. Otherwise use `docs/superpowers/specs`.
+- Write the validated design (spec) to `{specs_path}/YYYY-MM-DD-<topic>-design.md`
+  - (User preferences for spec location override both config and defaults)
+- If `orchestrate.conf` has `plans.commit = false`, skip the git commit of the spec file.
+```
+
 Append marker: `<!-- [BEANS-PATCHED] -->`
 
 **Verify:** Read the patched brainstorming file and confirm:
@@ -143,26 +159,58 @@ Append marker: `<!-- [BEANS-PATCHED] -->`
 
 ## Step 4: Patch Writing-Plans
 
-**Purpose:** Add beans creation step after saving the plan.
+**Purpose:** Add ARGS processing, config-aware paths, and beans creation step.
 
-**4a.** Insert a new section BEFORE `## Execution Handoff`:
+**4a.** Add ARGS line and config reading. Replace:
+
+```
+**Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
+- (User preferences for plan location override this default)
+```
+
+With:
+
+```
+ARGUMENTS: {ARGS}
+
+### Configuration
+
+Parse from `{ARGS}`:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--from-orchestrate` | false | Return control after beans instead of presenting execution handoff |
+
+### Plans Config
+
+Read `orchestrate.conf` (project root) if it exists. Extract from `plans {}` block:
+- `plans.path` — plan save directory (default: `docs/superpowers/plans`)
+- `plans.commit` — whether to git commit plan/spec files (default: `true`)
+
+**Save plans to:** `{plans.path}/YYYY-MM-DD-<feature-name>.md` (resolved from config or superpowers default).
+- User preferences for plan location override both config and defaults.
+- If `plans.commit` is false, skip all `git add` and `git commit` steps for plan documents.
+```
+
+**4b.** Insert a new section BEFORE `## Execution Handoff`:
 
 ```markdown
 ## Create Beans from Plan
 
 After saving the plan, create beans tasks from it. Beans are state-tracked pointers back to the plan.
 
-**Bean sizing:** For each `### Task N:` heading, follow the `bean-decomposition` skill to determine if it should be a task bean (1-2 TDD cycles) or a feature bean with child tasks (3+ TDD cycles).
+**Bean sizing:** For each `### Task N:` heading, follow the `define-bean-decomposition` skill to determine if it should be a task bean (1-2 TDD cycles) or a feature bean with child tasks (3+ TDD cycles).
 
 Bean descriptions MUST be self-contained — include the complete step-by-step instructions from the plan so that automated agents can work from the bean body alone without reading the plan file. The plan file path is included for human reference only.
 
 \```bash
 # If multiple related tasks, create an epic parent first
-beans create "Epic: <feature name>" --json -t epic -s todo -d "Implementation of <feature>. Plan: docs/plans/<filename>.md"
+beans create "Epic: <feature name>" --json -t epic -s todo -d "Implementation of <feature>. Plan: <plan-path>"
 
 # Create a bean per task — inline the FULL task content from the plan
 # Use --tag worktree or --tag branch per isolation rules below
-beans create "Task N: <title>" --json -t task -s todo -p <priority> --parent <epic-id> --tag <isolation> -d "Plan: docs/plans/<filename>.md Task N
+# <plan-path> is the actual path the plan was saved to above
+beans create "Task N: <title>" --json -t task -s todo -p <priority> --parent <epic-id> --tag <isolation> -d "Plan: <plan-path> Task N
 
 Files:
 - <file list from plan>
@@ -207,7 +255,7 @@ git commit -m "Add beans for <epic-name>"
 **Restart safety:** Execution is interrupt-safe. On restart, `in-progress` beans are picked up first (resuming interrupted work), then `todo` beans. Completed beans are skipped. No manual cleanup needed after an interruption.
 ```
 
-**4b.** Insert orchestrate-aware handoff before the Execution Handoff section. Add immediately before `## Execution Handoff`:
+**4c.** Insert orchestrate-aware handoff before the Execution Handoff section. Add immediately before `## Execution Handoff`:
 
 ```markdown
 ## Orchestrate Context Check
@@ -219,7 +267,7 @@ If set: STOP here. Do not present execution options. Report: "Plan complete. Bea
 If not set: proceed to Execution Handoff below.
 ```
 
-**4c.** Update the Execution Handoff:
+**4d.** Update the Execution Handoff:
 
 Replace `Two execution options` with `Beans created. Four execution options`.
 
@@ -230,7 +278,7 @@ Insert before `**Which approach?"**`:
 **4. Ralph Beans (hands-off)** - Run `/fiddle:develop-team --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
 ```
 
-After the `**If Parallel Session chosen:**` block, add:
+After the `**If Inline Execution chosen:**` block, add:
 ```
 **If Beans Batch chosen:**
 - Guide them to open new session in worktree
@@ -291,8 +339,8 @@ Append marker: `<!-- [BEANS-PATCHED] -->`
 ## Step 6: Verify
 
 Read all three patched files and confirm:
-- Brainstorming → has ARGS line with `--skip-panel` and `--from-orchestrate` flags, checklist has panel enrichment item, process flow has panel and `--from-orchestrate` nodes, terminal state is flag-dependent
-- Writing-plans → has "Create Beans from Plan" section with self-contained bean bodies, has "Orchestrate Context Check" with `--from-orchestrate` flag before handoff, handoff has 4 options (including Ralph Beans)
+- Brainstorming → has ARGS line with `--skip-panel` and `--from-orchestrate` flags, checklist has panel enrichment item, process flow has panel and `--from-orchestrate` nodes (intercepting after spec review), terminal state is flag-dependent, spec path is config-aware
+- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.conf` for `plans.path` and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
 - Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets
 - All three have `[BEANS-PATCHED]` marker
 

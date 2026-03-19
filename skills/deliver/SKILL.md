@@ -1,6 +1,6 @@
 ---
 name: fiddle:deliver
-description: Run the DELIVER phase — drift analysis comparing design to implementation, documentation update via docs-evolve, and epic closure. Requires a completed epic.
+description: Run the DELIVER phase — drift analysis comparing design to implementation, documentation update via deliver-docs, and epic closure. Requires a completed epic.
 argument-hint: --epic <id> [--providers codex]
 ---
 
@@ -72,14 +72,14 @@ Wait for user confirmation before proceeding.
 
 ### Step 3: Documentation Update
 
-Invoke docs-evolve:
+Invoke deliver-docs:
 ```
-Skill(skill: "fiddle:docs-evolve", args: "--epic <epic-id>")
+Skill(skill: "fiddle:deliver-docs", args: "--epic <epic-id>")
 ```
 
 This updates SYSTEM.md, creates ADRs for architectural decisions, and appends to BACKLOG.md.
 
-Present the docs-evolve results to the user for confirmation. Wait for approval.
+Present the deliver-docs results to the user for confirmation. Wait for approval.
 
 ### Step 4: Close Epic
 

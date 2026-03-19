@@ -16,7 +16,7 @@ Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecy
 
 **Hooks** (`hooks/`) — `session-start-check-providers.sh` checks CLI provider binaries are on PATH on session start and nudges `/fiddle:init` if missing. `task-completed-verify.sh` gates task completion with build/test verification (go build, go test, flutter test). Dispatched via `run-hook.cmd` (cross-platform polyglot wrapper).
 
-**Supporting skills** — `docs-discover` (project context scan), `docs-evolve` (post-ship doc updates), `bean-decomposition` (task sizing), `adr`/`feedback`/`backlog` (append-only records).
+**Supporting skills** — `discover-docs` (project context scan), `deliver-docs` (post-ship doc updates), `define-bean-decomposition` (task sizing), `adr`/`feedback`/`backlog` (append-only records).
 
 ## Data
 

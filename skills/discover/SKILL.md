@@ -1,6 +1,6 @@
 ---
 name: fiddle:discover
-description: Run the DISCOVER phase — gather project context via docs-discover, research ecosystem with external providers, confirm scope through Socratic dialogue, and stress-test assumptions via grill. Use standalone or as part of orchestrate.
+description: Run the DISCOVER phase — gather project context via discover-docs, research ecosystem with external providers, confirm scope through Socratic dialogue, and stress-test assumptions via grill. Use standalone or as part of orchestrate.
 argument-hint: <topic> [--skip-docs] [--skip-grill] [--providers codex]
 ---
 
@@ -16,7 +16,7 @@ Parse from `{ARGS}`:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--skip-docs` | false | Skip docs-discover — go straight to research, dialogue, and grill |
+| `--skip-docs` | false | Skip discover-docs — go straight to research, dialogue, and grill |
 | `--skip-grill` | false | Skip the grill step after scope confirmation |
 | `--providers <list>` | from config | Override provider list for this phase |
 
@@ -35,9 +35,9 @@ CLI `--providers` overrides the config file value.
 
 Skip if `--skip-docs` was set.
 
-Invoke docs-discover to gather project context and identify gaps:
+Invoke discover-docs to gather project context and identify gaps:
 ```
-Skill(skill: "fiddle:docs-discover", args: "<topic>")
+Skill(skill: "fiddle:discover-docs", args: "<topic>")
 ```
 
 This reads existing docs, CLAUDE.md, beans, and relevant source files. It produces a structured summary of what exists, what's relevant, and what gaps remain.

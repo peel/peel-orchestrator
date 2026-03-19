@@ -2,7 +2,7 @@
 
 Living docs for product and technical decisions. Persistent knowledge that informs all work — separate from beans (actionable work) and plans (session-scoped execution).
 
-**Flow:** `/docs-discover` → `superpowers:brainstorming` → `beans` → `superpowers:writing-plans` → `/develop-subs` → `/docs-evolve`
+**Flow:** `/discover-docs` → `superpowers:brainstorming` → `beans` → `superpowers:writing-plans` → `/develop-subs` → `/deliver-docs`
 
 ## Structure
 
@@ -24,8 +24,8 @@ docs/
 
 ## Skills
 
-- `/docs-discover [scope]` — Socratic dialogue to bootstrap or review docs
-- `/docs-evolve [--epic <id>]` — post-ship update of technical docs, ADRs, backlog
+- `/discover-docs [scope]` — Socratic dialogue to bootstrap or review docs
+- `/deliver-docs [--epic <id>]` — post-ship update of technical docs, ADRs, backlog
 - `/adr <title>` — new architecture decision record
 - `/feedback <signal>` — append user feedback
 - `/backlog <idea>` — append idea or debt item
