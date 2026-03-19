@@ -12,9 +12,7 @@ Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecy
 
 **Ralph** (`skills/develop-subs/SKILL.md`, `skills/develop-team/SKILL.md`) — Parallel bean implementation. Dispatches implementer subagents (sonnet) in worktrees with tiered review (haiku then sonnet). Two variants: subagent-driven and team-based. The lead computes `MAIN_BEANS_PATH` (absolute path to main checkout's `.beans/`) at startup and substitutes it into all agent prompts; worktree agents use `beans --beans-path {MAIN_BEANS_PATH}` so bean updates are always visible to the TUI and lead. Implementers are prohibited from changing bean status — only the lead manages status transitions. Includes reaction checks (CI failure escalation, stall detection, review overflow) in its "Assess and Act" loop. When invoked with `--caller orchestrate`, outputs `RALPH_STATUS: COMPLETE` or `RALPH_STATUS: PARKED` on exit.
 
-**Init** (`skills/init/SKILL.md`) — Provider setup skill. Verifies CLI providers are on PATH and authenticated.
-
-**Hooks** (`hooks/`) — `session-start-check-providers.sh` checks CLI provider binaries are on PATH on session start and nudges `/fiddle:init` if missing. `task-completed-verify.sh` gates task completion with build/test verification (go build, go test, flutter test). Dispatched via `run-hook.cmd` (cross-platform polyglot wrapper).
+**Hooks** (`hooks/`) — `session-start-check-providers.sh` checks CLI provider binaries are on PATH on session start. `task-completed-verify.sh` gates task completion with build/test verification (go build, go test, flutter test).
 
 **Challenge** (`skills/challenge/SKILL.md`) — Decision-tree interrogation skill. Walks every branch of a plan or design until shared understanding is reached. Phase-aware: in DISCOVER, opens by synthesizing findings and confirming scope; in DEFINE, challenges design edge cases and panel dissent. Also usable standalone.
 
