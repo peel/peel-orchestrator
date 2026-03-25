@@ -5,196 +5,74 @@ disable-model-invocation: true
 argument-hint: [--epic <id>] [--workers 10] [--max-review-cycles 10] [--max-impl-turns 100] [--max-review-turns 100] [--ci-max-retries 3] [--stall-timeout-min 15] [--stall-max-respawns 2] [--caller <name>]
 ---
 
-# Ralph Beans Implementation (Subagent Variant)
+# Ralph — Subagent Variant
 
-Stateless orchestrator. All state lives in `beans` CLI. The lead derives what to do from `beans list` each turn.
+Read `skills/ralph/ralph-core.md` for the shared loop (configuration, setup, assess-and-act, result handling, spawning, rules). This file covers subagent-specific behavior only.
 
-## Configuration
+**Variant identifier:** When stripping `<!-- VARIANT:... -->` sections from role templates, keep `<!-- VARIANT:subs -->` blocks and remove `<!-- VARIANT:team -->` blocks.
 
-Flags (all optional, order-independent):
-- `--epic <id>` — scope to beans under this epic (uses `beans list --parent <id>`)
-- `--workers N` (default: 10) — parallel beans in-flight
-- `--max-review-cycles N` (default: 10) — max cycles before abandoning
-- `--max-impl-turns N` (default: 100) — max agent turns per implementer spawn
-- `--max-review-turns N` (default: 100) — max agent turns per review coordinator
-- `--ci-max-retries N` (default: 3) — CI failures before tagging `needs-attention`
-- `--stall-timeout-min N` (default: 15) — minutes of inactivity before respawn/escalation
-- `--stall-max-respawns N` (default: 2) — stall respawns before tagging `needs-attention`
+## Additional Configuration
+
 - `--caller <name>` (default: none) — when set, output machine-readable `RALPH_STATUS` on exit
 
-**`BEANS_LIST` command:** When `--epic <id>` is set, every `beans list` invocation MUST include `--parent <id>`.
-- With `--epic cv0e`: `beans list --parent cv0e --json`
-- Without `--epic`: `beans list --json`
+## Variant Setup (after core setup step 4)
 
-**Reading bean data:** Use `beans show <id> --json` via Bash. Do NOT pipe through `python3` or suppress stderr.
+No additional setup required. Fall through to "Assess and Act".
 
-**STOP rule:** After processing any event, STOP — end your turn. Do not narrate or summarize. Exceptions noted inline.
-
-## Setup (first turn only)
-
-1. `BEANS_LIST` — if no incomplete beans, stop
-2. Compute `MAIN_BEANS_PATH`: the absolute path to `.beans/` in the main checkout. Store this value — it will be substituted into all agent prompts as `{MAIN_BEANS_PATH}`. Example: if main checkout is `/Users/peel/wrk/board`, then `MAIN_BEANS_PATH=/Users/peel/wrk/board/.beans`.
-3. Discover available agents: list `.claude/agents/*.md`, `~/.claude/agents/*.md`, and `.claude/skills/develop-subs/roles/*.md`. Read each file's opening lines to understand capabilities.
-4. **Worktree setup** (when `--workers > 1`): Read `roles/lead-procedures.md` → follow "Worktree Setup".
-5. Fall through to "Assess and Act"
-
-## Every Turn: Assess and Act
-
-Every bean goes through: **implement** → **review** (coordinator handles review internally).
-
-Run `BEANS_LIST`. Then:
-
-**Pre-step — Reaction checks:** For each `in-progress` leaf bean, run `beans show {id} --json` and check:
-
-1. **CI failure escalation:** If the bean has a `ci-retries:N` tag and `N >= ci_max_retries`:
-   ```bash
-   beans update {id} --tag needs-attention
-   echo "$(date +%H:%M) impl-{id} failed ${N}x → needs attention" >> .claude/orchestrate-events.log
-   ```
-
-2. **Stall detection:** Parse the last timestamp from `## Progress` entries (format: `- HH:MM ...`). If the last entry is older than `stall_timeout_min` minutes:
-   - Check the `stall-respawns:N` tag:
-     - If `N < stall_max_respawns` (or tag doesn't exist):
-       ```bash
-       beans update {id} --tag stall-respawns:$((N+1))
-       echo "$(date +%H:%M) impl-{id} stalled → respawned ($((N+1))/${stall_max_respawns})" >> .claude/orchestrate-events.log
-       ```
-       Ralph's next cycle will spawn a fresh implementer that reads `## Progress` and continues.
-     - If `N >= stall_max_respawns`:
-       ```bash
-       beans update {id} --tag needs-attention
-       echo "$(date +%H:%M) impl-{id} stalled ${N}x → needs attention" >> .claude/orchestrate-events.log
-       ```
-
-3. **Review overflow:** If a bean's review cycle count (from tags) reaches `max_review_cycles`:
-   ```bash
-   beans update {id} --tag needs-attention
-   echo "$(date +%H:%M) review-{id} overflow → needs attention" >> .claude/orchestrate-events.log
-   ```
-
-**Step 0 — Expand features:** For each **feature** bean in the list:
-- If `todo` with no blockers → `beans update {id} --status in-progress`
-- If `in-progress` → list children: `beans list --parent {id} --json`. Add children to work queue.
-- If `in-progress` AND all children `completed` → `beans update {id} --status completed`
-
-After expansion, work only with **leaf beans** (task, bug):
-
-1. Count `in-progress` leaf beans = active_count
-2. Count `todo` leaf beans with no blockers = ready_beans
-3. available_slots = workers - active_count
-
-**If ready_beans > 0 AND available_slots > 0:**
-For each ready leaf bean (up to available_slots):
-- `beans update {id} --status in-progress`
-- Select agents for this bean (auto-select based on bean content)
-- Tag the bean: `--tag agent:{impl-name} --tag reviewers:{r1}+{r2}`
-- **Worktree assignment:** Check bean tags:
-  - `worktree` tag (or no tag when `--workers > 1`): assign available worktree slot. Tag bean: `--tag worktree-slot:{prefix}-{N}`
-  - `branch` tag: skip worktree, main checkout. Only ONE `branch`-tagged bean in-progress at a time.
-- Spawn implementer (see "Implementer Spawn"). Launch all spawns in ONE message. STOP.
-
-**If active_count > 0 AND ready_beans == 0:** STOP.
-
-**If active_count == 0 AND ready_beans == 0:**
-
-Check for `needs-attention` beans: `beans list --parent <epic-id> --json` and filter for `needs-attention` tag.
-
-- **If needs-attention beans exist:** Output the following and STOP:
-  ```
-  RALPH_STATUS: PARKED
-  Needs-attention beans:
-  - <bean-id>: <title> — <reason from tags/event log>
-  - ...
-  ```
-
-- **If all beans completed (no needs-attention):**
-  Read `roles/lead-procedures.md` → run "Epic Holistic Review". If none → follow "Cleanup".
-  After epic holistic review completes, output completion message:
-  - If `--caller orchestrate` was set:
-    ```
-    RALPH_STATUS: COMPLETE
-    Completed: <N> beans, Needs-attention: <M> beans
-    ```
-  - If no `--caller` flag: remind the user: "Epic complete. Run `/fiddle:deliver-docs --epic <id>` to update project docs."
-
-## When a Background Task Completes
+## Event Handling
 
 You are notified when background tasks finish. The notification includes the task name and ID. For each:
 
 1. Identify the bean from the task name (`impl-{bean-slug}` or `review-{bean-slug}-c{cycle}`)
 2. Read the result: `TaskOutput(task_id: <id>, block: false, timeout: 5000)`
 3. Confirm via `BEANS_LIST` — check bean's role tag: `role:implement` or `role:review`
+4. Follow "Handling Results" in `skills/ralph/ralph-core.md`
 
-**Implementer result (non-empty):**
-- Present the diff from the result to the user.
-- Read `roles/lead-procedures.md` → run "Lead Verification". If fails → spawn fix implementer, skip review. STOP.
-- `beans update {id} --remove-tag role:implement --remove-tag bg-task:{old_task_id} --remove-tag ci-retries --remove-tag stall-respawns --tag role:review`
-- Spawn review coordinator (see "Review Coordinator Spawn"). STOP.
+**Additional tag management on implementer → review transition:**
+```bash
+beans update {id} --remove-tag role:implement --remove-tag bg-task:{old_task_id} --remove-tag ci-retries --remove-tag stall-respawns --tag role:review
+```
 
-**Implementer result (empty/error):** Stale — read `roles/lead-procedures.md` → "Abandon Bean". STOP.
+**On review coordinator spawn:** Update bg-task tag:
+```bash
+beans update {id} --remove-tag bg-task:{old_task_id} --tag bg-task:{new_task_id}
+```
 
-**Review coordinator result:**
-The result starts with `VERDICT {bean-id} {TYPE}`. Parse the bean ID and verdict type from the first line.
-- **`VERDICT {id} APPROVED`** → `beans update {id} --status completed`. Check parent feature: if parent exists and all siblings completed → complete feature. "Assess and Act". STOP.
-- **`VERDICT {id} APPROVED_WITH_COMMENTS`** → present the comments to user. Parse `FLAGGED_BY:` line (second line). `beans update {id} --remove-tag role:review --tag role:review-fix-{cycle} --tag flagged-by:{reviewers}`. Spawn NEW implementer with suggestions (using `superpowers:receiving-code-review`). STOP.
-- **`VERDICT {id} ISSUES`** → present the issues to user. Parse `FLAGGED_BY:` line (second line). If cycle >= max_review_cycles → read `roles/lead-procedures.md` → "Abandon Bean". STOP. Otherwise: `beans update {id} --remove-tag role:review --tag role:review-fix-{cycle} --tag flagged-by:{reviewers}`, spawn fix implementer. STOP.
-- **Unparseable result** → log warning, find bean via task name. If cycle >= max_review_cycles → read `roles/lead-procedures.md` → "Abandon Bean". Otherwise: increment cycle, respawn review coordinator for that bean. STOP.
+**User interrupts (esc) or says to proceed:** "Assess and Act" immediately. For `in-progress` beans with `bg-task:*` tag, check task status via `TaskOutput(block: false)`. If completed, process result. If no active task, respawn.
 
-**User interrupts (esc) or says to proceed:** "Assess and Act" immediately. Re-read tags. For `in-progress` beans with `bg-task:*` tag, check task status via `TaskOutput(block: false)`. If completed, process result. If no active task, respawn.
-
-## Spawning Agents
+## Agent Spawn Config
 
 All agents are subagents (no `team_name`). The coordinator internally spawns reviewer sub-tasks — the lead never spawns reviewers directly.
 
-### Implementer Spawn
-
-**NEVER inline or simplify role templates.** Always Read the actual file and substitute placeholders. Do not paraphrase, abbreviate, or rewrite templates to save tokens — agents follow instructions literally and skip steps when prompts are simplified.
-
-1. Read `.claude/skills/develop-subs/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
-2. If worktree assigned: omit the `## Git Coordination` section (between `<!-- CONDITIONAL -->` markers)
-3. For fix cycles, append issues under `## Review Issues to Address`
-4. Spawn and tag bean:
 ```
-task = Task(
-  name: "impl-{bean-slug}[-fix{cycle}]",
+Agent(
+  name: "impl-{bean-slug}[-fix{cycle}]",    # or "review-{bean-slug}-c{cycle}"
   subagent_type: "general-purpose",
-  model: <models.develop>,  # from orchestrate.conf; if "default", omit to inherit session model
+  model: <models.develop>,  # from orchestrate.json; if "default", omit to inherit session model
   mode: "bypassPermissions",
   run_in_background: true,
-  max_turns: <max-impl-turns>,
-  prompt: ...
+  max_turns: <max-impl-turns or max-review-turns>,
+  prompt: <substituted template>
 )
-beans update {id} --tag role:implement --tag bg-task:{task_id}
+beans update {id} --tag bg-task:{task_id}
 ```
 
-### Review Coordinator Spawn
+## Completion
 
-**NEVER inline or simplify role templates.** Always Read the actual file and substitute placeholders.
-
-**Cycle 1:** Auto-select domain agents relevant to the bean. If no domain agents match, use `baseline` as fallback.
-**Cycle 2+:** Use only the reviewers from the bean's `flagged-by:*` tag (set by previous verdict).
-
-1. Read `.claude/skills/develop-subs/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
-2. Spawn and tag bean:
+**If needs-attention beans exist:**
 ```
-task = Task(
-  name: "review-{bean-slug}-c{cycle}",
-  subagent_type: "general-purpose",
-  model: <models.develop>,  # from orchestrate.conf; if "default", omit to inherit session model
-  mode: "bypassPermissions",
-  run_in_background: true,
-  max_turns: <max-review-turns>,
-  prompt: ...
-)
-beans update {id} --remove-tag bg-task:{old_task_id} --tag bg-task:{task_id}
+RALPH_STATUS: PARKED
+Needs-attention beans:
+- <bean-id>: <title> — <reason from tags/event log>
+- ...
 ```
 
-## Rules
+**If all beans completed:**
+- Run "Epic Holistic Review" from `skills/ralph/roles/lead-procedures.md`, then "Cleanup"
+- If `--caller` was set: output `RALPH_STATUS: COMPLETE\nCompleted: <N> beans, Needs-attention: <M> beans`
+- If no `--caller` flag: remind the user: "Epic complete. Run `/fiddle:deliver-docs --epic <id>` to update project docs."
 
-- Always `run_in_background: true` — never block on Task calls
+## Additional Rules
+
+- Tag beans with `bg-task:{task_id}` on spawn, remove on completion
 - No `team_name` — all agents are subagents returning results directly
-- Models: implementers=models.develop, coordinators=models.develop (reviewers=models.develop internally), epic holistic review=opus. Read model config from orchestrate.conf; "default" means omit model parameter to inherit session model.
-- Fresh context per cycle — never resume agents
-- Never implement beans yourself — delegate only
-- Safe to kill and restart — beans CLI holds all state
-- **Bean commands from worktree context:** After any `cd {worktree_path}`, use `beans --beans-path $MAIN_BEANS_PATH` for all subsequent `beans` commands until you return to the main checkout. Alternatively, always use `--beans-path $MAIN_BEANS_PATH` for safety — it is harmless when already in main.

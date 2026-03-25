@@ -1,6 +1,13 @@
 # Lead Procedures
 
-On-demand procedures for the team lead. Read this file only when a specific procedure is needed.
+On-demand procedures for the lead. Read this file only when a specific procedure is needed.
+
+## Token Optimization Checklist
+
+When building implementer/reviewer prompts:
+- Replace `{BEANS_ROOT}` with main checkout path (where `.beans/` lives) — prevents "bean not found" errors
+- Replace `{WORKTREE_PATH}` with absolute path or empty string for main checkout
+- Check API quota before spawning expensive multi-reviewer coordinators
 
 ## Worktree Setup
 
@@ -17,21 +24,22 @@ When `--workers > 1`:
 
 ## Lead Verification
 
-Runs **once** per review transition, before sending a review request to the coordinator. The lead only checks exit codes — full output stays on disk for reviewers.
+Runs **once** per review transition, before spawning the review coordinator. The lead only checks exit codes — full output stays on disk for reviewers.
 
 1. Determine worktree path from bean's `worktree-slot:*` tag (or main checkout for `branch`-tagged beans)
 2. Run via Bash (discard output):
    ```bash
-   cd {worktree_path} && echo "VERIFIED_AT:$(git rev-parse HEAD) BEAN:{bean_id} TS:$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .verification-output.txt && direnv exec . sh -c 'go test -short ./... 2>&1; echo "EXIT:$?"' >> .verification-output.txt && direnv exec . sh -c 'go build ./... 2>&1; echo "EXIT:$?"' >> .verification-output.txt
+   cd {worktree_path} && echo "VERIFIED_AT:$(git rev-parse HEAD) BEAN:{bean_id} TS:$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .verification-output.txt && {VERIFY_CMD} >> .verification-output.txt
    ```
+   `{VERIFY_CMD}` comes from `orchestrate.conf` or CLAUDE.md — the lead reads it once and reuses it for all beans.
 3. Check only exit codes (grep for `EXIT:` lines). Do NOT read the full file.
 
-**If all EXIT:0:** Proceed to send review request to coordinator.
+**If all EXIT:0:** Proceed to spawn review coordinator.
 
-**If any fail:** Do NOT send review request. Instead:
+**If any fail:** Do NOT spawn review coordinator. Instead:
 - `beans update {id} --tag role:review-fix-{cycle}` (increment cycle)
 - Check review cycle. If >= max_review_cycles → "Abandon Bean"
-- Otherwise: spawn fix implementer teammate. Tell it to read `{WORKTREE_PATH}/.verification-output.txt` for failure details.
+- Otherwise: spawn fix implementer. Tell it to read `{WORKTREE_PATH}/.verification-output.txt` for failure details.
 
 **After verification:** If you ran `cd {worktree_path}`, your cwd is now inside the worktree. All subsequent `beans` commands MUST use `beans --beans-path $MAIN_BEANS_PATH` to target the main directory. This applies to the `beans update` calls that follow verification (e.g., `--tag role:review`, `--status completed`).
 
@@ -43,15 +51,15 @@ When all child beans of an epic are completed and only the epic bean remains.
 
 **Loop:**
 1. Tag the epic: `beans update {id} --tag epic-review-cycle:{N}` (starting at 1)
-2. Send review request to the coordinator with epic scope:
+2. Spawn review coordinator with epic scope:
    - Content: epic description + list of all child bean IDs and titles
    - Instruction: review `git diff main...epic/{epic-id}` (or `git diff main...HEAD` without `--epic`)
    - Reviewers look for: inconsistencies between beans, integration issues, naming conflicts, missed edge cases, dead code
-3. Wait for coordinator verdict.
+3. Wait for coordinator result via `TaskOutput(task_id, block: true, timeout: 600000)`.
 
-**CLEAN:** `beans update {id} --status completed`, mark team task completed → Cleanup.
+**CLEAN:** `beans update {id} --status completed` → Cleanup.
 
-**Issues:** Present findings to user. Spawn fix implementer(s). When fixes done, increment cycle and send new review request (step 2). Max cycles = max_review_cycles. If exceeded → present remaining issues, complete anyway.
+**Issues:** Present findings to user. Spawn fix implementer(s). When fixes done, increment cycle and spawn new coordinator (step 2). Max cycles = max_review_cycles. If exceeded → present remaining issues, complete anyway.
 
 ## Abandon Bean
 
@@ -68,15 +76,22 @@ When a bean must be abandoned (max review cycles exceeded, implementer hit max_t
 
 When no incomplete beans remain:
 
+<!-- VARIANT:subs -->
+1. Stop any running background tasks: `TaskStop(task_id)` for beans with `bg-task:*` tags still active.
+<!-- END VARIANT:subs -->
+<!-- VARIANT:team -->
 1. Send `shutdown_request` to all remaining teammates (implementers and review coordinator).
+<!-- END VARIANT:team -->
 2. **Merge workers into integration worktree:**
    - Integration worktree: `.worktrees/{epic-id}-integration` (epic) or `.worktrees/integration` (non-epic)
    - `cd {integration-worktree-path}`
    - Optionally run `clash status` to check for conflicts and merge conflict-free workers first
    - For each completed bean with `worktree-slot:*` tag: `git merge {prefix}-{N}/scratch`, then `git worktree remove .worktrees/{prefix}-{N}` and `git branch -d {prefix}-{N}/scratch`
+<!-- VARIANT:team -->
 3. `TeamDelete`
-4. Report final status and integration branch name to user.
-5. Ask user: "Work is on branch `{integration-branch}`. What would you like to do?"
+<!-- END VARIANT:team -->
+3. Report final status and integration branch name to user.
+4. Ask user: "Work is on branch `{integration-branch}`. What would you like to do?"
    - **Checkout in main worktree** → in main worktree: `git checkout {integration-branch}`. Remove integration worktree: `git worktree remove {integration-worktree-path}`.
    - **Rebase onto main** → in integration worktree: `git rebase main`. Then in main worktree: `git checkout main && git merge --ff-only {integration-branch}`. Remove integration worktree: `git worktree remove {integration-worktree-path}`.
    - **Leave as-is** → keep integration worktree, report path.

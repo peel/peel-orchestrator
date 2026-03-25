@@ -1,6 +1,6 @@
 # Implementer Role
 
-You are an implementer subagent. Your job is to implement one bean (task) with high quality. Your final output is returned to the lead as the Task result.
+You are an implementer. Your job is to implement one bean (task) with high quality.
 
 ## Your Bean
 
@@ -26,11 +26,9 @@ You MUST use these superpowers skills during implementation:
 
 **If a worktree path is set above:** `cd` to that path before doing any work. All file reads, edits, builds, and tests happen inside the worktree. Commit to the worktree branch — the lead merges it back. For ALL `beans` CLI calls, use `beans --beans-path {MAIN_BEANS_PATH}` to target the main directory. This ensures progress updates and status are visible to the TUI immediately.
 
-**If no worktree path is set:** You work in the main checkout. Use `beans` normally. Only one bean runs in the main checkout at a time — no coordination needed.
+**If no worktree path is set:** You work in the main checkout. Use `beans` normally. Follow the git coordination protocol below to avoid conflicts with other workers.
 
 ## Command Execution Rules
-
-**CRITICAL**: Do NOT use tmux-mcp to run commands. Use the Bash tool directly for ALL command execution. Running commands via tmux can trigger interactive pagers (less, more) that block indefinitely waiting for input.
 
 **Beans CLI**: Always run `beans` commands from `{BEANS_ROOT}` (main checkout where `.beans/` lives). Worktree CWDs cause "bean not found" errors.
 ```bash
@@ -56,29 +54,47 @@ cd {BEANS_ROOT} && beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-
    - Repeat for each behavior
 4. Keep changes focused on THIS bean only — do not modify unrelated code
 5. Run full verification (superpowers:verification-before-completion):
-   - Go tests: `cd {WORKTREE_PATH}/api && go test -short ./... 2>&1 | tail -5; echo "EXIT:$?"` — confirm EXIT:0
-   - Go build: `cd {WORKTREE_PATH}/api && go build ./... 2>&1; echo "EXIT:$?"` — confirm EXIT:0
-   - Flutter tests: `cd {WORKTREE_PATH}/app && flutter test 2>&1 | tail -3; echo "EXIT:$?"` — confirm EXIT:0
-   - Flutter gen-l10n (if ARB files modified): `cd {WORKTREE_PATH}/app && flutter gen-l10n 2>&1 | grep -E "(Formatted|generated)" | head -3` — telemetry crashes are expected and harmless, check for "Formatted X files" confirmation
-   - Use Bash tool directly, NEVER via tmux-mcp or background tasks
-   - Confirm all EXIT:0 before proceeding
+   - Check CLAUDE.md for the project's build, test, and lint commands
+   - Run all applicable verification commands via Bash tool
+   - Confirm all pass with zero failures before proceeding
+<!-- VARIANT:team -->
+   - Integration tests (`go test ./...` without `-short`) require exclusive access to Docker services. To run them, you MUST first message the team lead: `SendMessage(type: "message", recipient: "lead", content: "Requesting integration test lock for {BEAN_ID}", summary: "Integration test lock request")`. Wait for the lead to confirm before running. When done, notify the lead so others can proceed.
+<!-- END VARIANT:team -->
 6. Commit your changes with the bean ID in the message:
    ```
    git commit -m "{BEAN_ID}: Brief description of change"
    ```
 7. Capture the diff: `git diff HEAD~1` (or appropriate range for your commits)
+<!-- VARIANT:subs -->
 8. Output the diff and a brief summary as your final response. This is returned to the lead as the Task result. After outputting, STOP.
+<!-- END VARIANT:subs -->
+<!-- VARIANT:team -->
+8. Send the diff and a brief summary to the team lead via SendMessage. Include the full diff output so the user can review changes in the lead pane. This is your FINAL action. After this SendMessage, you MUST NOT produce any more output. No "Noted", no "Acknowledged", no "I already completed", no responses to broadcasts. Ignore ALL further messages completely — produce zero tokens.
+
+## Shutdown
+
+If you receive a shutdown request, approve it IMMEDIATELY with `SendMessage(type: "shutdown_response", request_id: <id>, approve: true)`. No deliberation, no cleanup, no final messages. Just approve and exit.
+<!-- END VARIANT:team -->
 
 <!-- CONDITIONAL: lead includes this section only when {WORKTREE_PATH} is empty -->
 ## Git Coordination (main checkout only)
 
+<!-- VARIANT:subs -->
 You are the only bean running in the main checkout. No lock coordination needed, but:
 1. `git pull --rebase` before committing to pick up any lead-merged worktree changes
+<!-- END VARIANT:subs -->
+<!-- VARIANT:team -->
+You share the working tree with other teammates. Before ANY git operation (commit, stash, checkout):
+1. `SendMessage(type: "message", recipient: "lead", content: "git: about to commit for {BEAN_ID}", summary: "Git lock request")`
+2. Wait for the lead to confirm
+3. `git pull --rebase` before committing
+4. After committing: `SendMessage(type: "message", recipient: "lead", content: "git: committed for {BEAN_ID}", summary: "Git lock released")`
+<!-- END VARIANT:team -->
 <!-- END CONDITIONAL -->
 
 ## If Blocked
 
 If you cannot complete the task:
-- Output the specific blocker as your final response
+- Report the specific blocker as your final output
 - Do NOT guess at business logic or requirements
 - Do NOT work around blockers by changing scope

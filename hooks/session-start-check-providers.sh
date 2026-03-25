@@ -2,13 +2,12 @@
 # SessionStart hook: detect missing provider CLIs and nudge the user.
 set -uo pipefail
 
-# Only act if orchestrate.conf exists in the project
-CONF="${CLAUDE_PROJECT_DIR:-.}/orchestrate.conf"
+# Only act if orchestrate.json exists in the project
+CONF="${CLAUDE_PROJECT_DIR:-.}/orchestrate.json"
 [[ -f "$CONF" ]] || exit 0
 
-# Extract unique provider names from phase assignment lines only
-# (lines with = [...]) to avoid matching command/flags values
-PROVIDERS=$(grep -E '=\s*\[' "$CONF" | grep -oE '"[a-z]+"' | tr -d '"' | sort -u)
+# Extract unique provider names from phase assignments
+PROVIDERS=$(jq -r '.providers.phases // {} | to_entries[].value[]' "$CONF" 2>/dev/null | sort -u)
 
 [[ -z "$PROVIDERS" ]] && exit 0
 

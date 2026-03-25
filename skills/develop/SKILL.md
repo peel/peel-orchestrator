@@ -24,7 +24,7 @@ Parse from `{ARGS}`:
 
 ### Config File
 
-Read `orchestrate.conf` (project root) if it exists. Extract:
+Read `orchestrate.json` (project root) if it exists. Extract:
 - `ralph {}` block — workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
 - `models.develop` — model for implementers, reviewers, ralph orchestrator
 - `providers.develop_holistic` — provider list for holistic review (default: `["codex"]`)
@@ -156,19 +156,22 @@ Present bean summary to user (completed, in-progress, todo, needs-attention coun
 
 When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-progress`):
 
-1. If holistic review providers are configured, read the provider dispatch and context procedures (resolve relative to this skill's base directory):
-   - `../develop-subs/roles/provider-dispatch.md`
-   - `../develop-subs/roles/provider-context.md`
+1. If holistic review providers are configured, read `../ralph/roles/provider-dispatch.md` for collection rules. For each provider:
 
-   Follow the dispatch procedure for each provider with:
+   ```bash
+   DESIGN_FILE=$(mktemp /tmp/design-XXXX.md)
+   DIFF_FILE=$(mktemp /tmp/diff-XXXX.txt)
+   # <write design doc to $DESIGN_FILE, git diff to $DIFF_FILE>
 
-   - `PROVIDER_ROLE` = "Holistic reviewer"
-   - `TOPIC` = "Epic holistic review for `<epic-id>`"
-   - `DESIGN_DOC` = `<design doc content>`
-   - `DIFF` = `<git diff main...HEAD>`
-   - `INSTRUCTIONS` = "Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
+   hooks/dispatch-provider.sh <provider> \
+     --role "Holistic reviewer" \
+     --topic "Epic holistic review for <epic-id>" \
+     --design-doc-file "$DESIGN_FILE" \
+     --diff-file "$DIFF_FILE" \
+     --instructions "Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
+   ```
 
-   Dispatch all providers in parallel. Collect results in **unattended** mode (first-past-the-post).
+   Fire all providers in parallel (`run_in_background: true`). Collect results in **unattended** mode (first-past-the-post).
 
 2. If no provider is available, perform the holistic review yourself: read the design doc, review the full diff, and compare.
 3. If holistic review creates fix beans → loop to Step 2. **Re-use the identical SKILL.md prompt from the original spawn** — Ralph discovers new beans via `beans list`. Do NOT write a custom prompt for fix cycles.

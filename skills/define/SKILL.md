@@ -1,7 +1,7 @@
 ---
 name: fiddle:define
 description: Run the DEFINE phase — brainstorm approaches with optional panel enrichment, challenge chosen design, create implementation plan and beans. Use standalone or as part of orchestrate.
-argument-hint: <topic> [--skip-challenge] [--skip-panel] [--providers codex,gemini]
+argument-hint: <topic> [--skip-challenge] [--skip-panel]
 ---
 
 # Define
@@ -18,12 +18,11 @@ Parse from `{ARGS}`:
 |---|---|---|
 | `--skip-challenge` | false | Skip the challenge step after design approval |
 | `--skip-panel` | false | Skip panel enrichment during brainstorming |
-| `--providers <list>` | from config | Override provider list for this phase |
 
 ### Config File
 
-Read `orchestrate.conf` (project root) if it exists. Extract:
-- `providers.define` — default provider list for this phase (default: `["codex", "gemini"]`)
+Read `orchestrate.json` (project root) if it exists. Extract:
+- `providers.phases.define` — provider list for this phase (default: `["codex", "gemini"]`)
 - Provider declarations (`providers.<name>.command`, `.flags`) for each provider
 - `models.define` — model override for panel advocates and brainstorming subagents
 

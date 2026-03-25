@@ -1,7 +1,7 @@
 ---
 name: fiddle:orchestrate
 description: Use when starting a full development lifecycle for a feature or epic — chains discover, define, develop, deliver phases with multi-model support and reaction engine
-argument-hint: <topic> [--epic <id>] [--skip-discover] [--skip-challenge] [--providers codex,gemini]
+argument-hint: <topic> [--epic <id>] [--skip-discover] [--skip-challenge]
 ---
 
 # Orchestrate
@@ -25,69 +25,43 @@ Parse from `{ARGS}`:
 | `--skip-docs` | false | Passed through to discover phase — skip discover-docs |
 | `--skip-challenge` | false | Passed through to discover and define phases |
 | `--skip-panel` | false | Passed through to define phase |
-| `--providers <list>` | per-phase defaults | Global provider override (comma-separated) |
-| `--discover-providers <list>` | codex | Override DISCOVER phase providers |
-| `--define-providers <list>` | codex,gemini | Override DEFINE phase providers |
-| `--develop-providers <list>` | none | Override DEVELOP phase providers |
-| `--develop-holistic-providers <list>` | codex | Override holistic review providers |
-| `--deliver-providers <list>` | codex | Override DELIVER phase providers |
 | `--workers <N>` | 2 | Passed through to develop phase |
 | `--max-review-cycles <N>` | 3 | Passed through to develop phase |
 | `--max-total-turns <N>` | 200 | Passed through to develop phase |
 
+Provider configuration lives in `orchestrate.json` only — no CLI overrides. Each phase reads its provider list from `providers.phases.<phase>`. Available providers are auto-detected at session start (see `hooks/session-start-check-providers.sh`).
+
 ### Config File
 
-Read `orchestrate.conf` (project root) if it exists. Format is HCL:
+Read `orchestrate.json` (project root) if it exists. Format is JSON:
 
-```hcl
-providers {
-  codex {
-    command = "codex exec"
-    flags   = "--json -s read-only"
-  }
-  gemini {
-    command = "gemini"
-    flags   = "-o json --approval-mode auto_edit"
-  }
-
-  discover         = ["codex"]
-  define           = ["codex", "gemini"]
-  develop          = []
-  develop_holistic = ["codex"]
-  deliver          = ["codex"]
-
-  timeout {
-    attended   = 120
-    unattended = 90
-  }
-}
-
-ralph {
-  workers            = 2
-  max_review_cycles  = 3
-  max_impl_turns     = 50
-  max_review_turns   = 30
-  max_total_turns    = 200
-  ci_max_retries     = 3
-  stall_timeout_min  = 15
-  stall_max_respawns = 2
-}
-
-models {
-  # discover = "sonnet"
-  # define   = "sonnet"
-  # deliver  = "sonnet"
-
-  # develop = "sonnet"
-}
-
-develop {
-  # execution = "develop-subs"  // or "tmux-team", "hands-on", "hands-on-parallel"
-}
-
-plans {
-  # path   = "docs"              // parent dir for specs/ and plans/ (default: docs/superpowers)
-  # commit = true                // whether to git commit plan/spec files (default: true)
+```json
+{
+  "providers": {
+    "codex": { "command": "codex exec", "flags": "--json -s read-only" },
+    "gemini": { "command": "gemini", "flags": "-o json --approval-mode auto_edit" },
+    "phases": {
+      "discover": ["codex"],
+      "define": ["codex", "gemini"],
+      "develop": [],
+      "develop_holistic": ["codex"],
+      "deliver": ["codex"]
+    },
+    "timeout": { "attended": 120, "unattended": 90 }
+  },
+  "ralph": {
+    "workers": 2,
+    "max_review_cycles": 3,
+    "max_impl_turns": 50,
+    "max_review_turns": 30,
+    "max_total_turns": 200,
+    "ci_max_retries": 3,
+    "stall_timeout_min": 15,
+    "stall_max_respawns": 2
+  },
+  "models": {},
+  "develop": {},
+  "plans": {}
 }
 ```
 
@@ -116,9 +90,9 @@ Claude is implicit — always present, never listed. When a phase lists "codex",
 
 ### Merge Order
 
-Defaults → config file → CLI flags. Later values override earlier ones. `--providers` sets all phases; per-phase flags override that.
+Defaults → config file → CLI flags. Later values override earlier ones. Providers come from config file only (no CLI override).
 
-Orchestrate reads `orchestrate.conf` once during SETUP and computes final values. These are passed as CLI args to each phase skill. Phase skills also read `orchestrate.conf` for their own defaults when invoked standalone, but when called from orchestrate, the passed args take precedence.
+Orchestrate reads `orchestrate.json` once during SETUP and computes final values. Phase skills also read `orchestrate.json` for their own defaults when invoked standalone.
 
 ## SETUP
 
@@ -127,10 +101,10 @@ Run this section immediately on invocation, before any phase.
 ### Step 1: Parse Configuration
 
 1. Set provider defaults from the table above. Set model defaults from the Model Defaults table.
-2. If `orchestrate.conf` exists (project root): read it with the Read tool. Parse each HCL block:
-   - `providers {}` — override provider defaults for each phase
-   - `ralph {}` — set workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
-   - `models {}` — override model defaults for each phase. `develop` is a string key. "default" means omit the `model:` parameter to inherit the session model.
+2. If `orchestrate.json` exists (project root): read it with the Read tool. Parse each JSON key:
+   - `providers` — provider definitions and phase assignments
+   - `ralph` — set workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
+   - `models` — override model defaults for each phase. `develop` is a string key. "default" means omit the `model:` parameter to inherit the session model.
 3. Parse CLI flags from `{ARGS}`. Override any config file values.
 4. Store final config values for use throughout the session.
 
@@ -142,21 +116,7 @@ beans show <id> --json
 ```
 Confirm it exists and is type `epic` or `milestone`. If not found, stop and report error to user.
 
-### Step 3: Create Status Pane
-
-Split the current tmux window to create a status pane:
-```bash
-# Get current pane ID
-CURRENT_PANE=$(tmux display-message -p '#{pane_id}')
-# Split horizontally (side by side), 40% width for status
-tmux split-window -h -l 40% "bash scripts/orchestrate-status.sh <epic-id>"
-# Return focus to the main pane
-tmux select-pane -t "$CURRENT_PANE"
-```
-
-If the status script is not available yet (placeholder), skip this step silently.
-
-### Step 4: Determine Phase
+### Step 3: Determine Phase
 
 If `--epic <id>` was provided, detect the current phase from bean state for resumption:
 
@@ -184,7 +144,6 @@ Skip this phase if `--skip-discover` was set OR if `--epic` was provided and chi
 
 Build args for the discover phase:
 - `<topic>`
-- `--providers <discover-providers>` (if overridden from defaults)
 - `--skip-docs` (if set)
 - `--skip-challenge` (if set)
 
@@ -206,7 +165,6 @@ Fall through to DEFINE.
 
 Build args for the define phase:
 - `<topic>`
-- `--providers <define-providers>` (if overridden from defaults)
 - `--skip-challenge` (if set)
 - `--skip-panel` (if set)
 
@@ -257,7 +215,6 @@ Fall through to DELIVER.
 
 Build args for the deliver phase:
 - `--epic <epic-id>`
-- `--providers <deliver-providers>` (if overridden from defaults)
 
 Invoke:
 ```
@@ -266,22 +223,13 @@ Skill(skill: "fiddle:deliver", args: "<built args>")
 
 ## CLEANUP
 
-### Step 1: Kill Status Pane
-
-```bash
-# Find and kill the status pane (it's running orchestrate-status.sh)
-tmux list-panes -F '#{pane_id} #{pane_current_command}' | grep orchestrate-status | awk '{print $1}' | xargs -I{} tmux kill-pane -t {}
-```
-
-If the pane doesn't exist, skip silently.
-
-### Step 2: Clean Phase Tag
+### Step 1: Clean Phase Tag
 
 ```bash
 beans update <epic-id> --remove-tag orchestrate-phase:DELIVER
 ```
 
-### Step 3: Summary
+### Step 2: Summary
 
 Count final bean states:
 ```bash

@@ -1,12 +1,12 @@
 ---
 name: fiddle:panel
-description: Use when evaluating architectural approaches or design decisions — runs structured multi-model adversarial analysis with cross-review rounds and synthesis
-argument-hint: <topic> [--providers codex,gemini] [--rounds 2] [--context file1 file2]
+description: Use when evaluating architectural approaches or design decisions — runs structured multi-model adversarial analysis with cross-review and synthesis
+argument-hint: <topic> [--rounds 2] [--context file1 file2]
 ---
 
 # Panel
 
-Structured multi-model adversarial analysis. Each participant argues an independent position, cross-reviews the others, and Claude synthesizes into a verdict.
+Structured multi-model adversarial analysis. Participants argue independent positions, cross-review the others, and Claude synthesizes into a verdict.
 
 ARGUMENTS: {ARGS}
 
@@ -16,137 +16,110 @@ Parse from `{ARGS}`:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--providers <list>` | codex,gemini | Comma-separated external providers |
 | `--rounds <N>` | 2 | Number of cross-review rounds |
 | `--context <files>` | none | Space-separated file paths to read for context |
 
 If `--context` files are provided, read each with the Read tool. Include their contents as context for all participants.
 
-## Provider Roles
+## Participants
 
-Roles are fixed — each provider argues from an assigned perspective:
+Read `orchestrate.json` → `providers.phases.define` for the provider list. For each provider, check if its CLI binary is on PATH:
+```bash
+which <first-word-of-command>   # e.g. "codex" for "codex exec", "gemini" for "gemini"
+```
 
-| Provider | Perspective | Focus |
+**If at least one external provider is available (full mode):**
+
+| Participant | Perspective | Dispatch |
 |---|---|---|
-| **Claude** | Synthesis + codebase/domain | Final judgment, project-specific context |
-| **Codex** | Implementation depth | Code patterns, technical feasibility, performance |
-| **Gemini** | Ecosystem breadth | Alternatives, prior art, industry patterns |
+| **Claude** | Codebase/domain context | `Agent(run_in_background: true)` |
+| **Codex** | Implementation depth: code patterns, feasibility, performance | `hooks/dispatch-provider.sh codex ...` |
+| **Gemini** | Ecosystem breadth: alternatives, prior art, industry patterns | `hooks/dispatch-provider.sh gemini ...` |
 
-Claude is always present and always does synthesis. External providers participate in debate rounds.
+Only include providers whose CLI is available. Claude is always present.
 
-## Mode Detection
+**If no external providers are available (degraded mode):**
 
-### Provider Availability
+| Participant | Perspective | Dispatch |
+|---|---|---|
+| **Advocate A** | Assigned advocate for Approach 1 | `Agent(run_in_background: true)` |
+| **Advocate B** | Assigned advocate for Approach 2 | `Agent(run_in_background: true)` |
 
-1. Read `orchestrate.conf` → `providers` block. For each provider listed in the `define` phase list, read its `command` field.
-2. Check each provider's CLI binary on PATH:
-   ```bash
-   which <first-word-of-command>   # e.g. "codex" for "codex exec", "gemini" for "gemini"
-   ```
-3. At least one external provider binary found → **full mode**. None found → **degraded mode** (Claude subagents only).
+Read `models.define` from `orchestrate.json`. If "default" or not set, omit the `model:` parameter to inherit session model.
 
-### Invocation Context
+## Invocation Context
 
 **Standalone** (user typed `/fiddle:panel <topic>`):
-- The topic is the user's question or decision
-- Before Phase 1: generate 2-3 candidate approaches from the topic. These become the positions to debate.
+- Generate 2-3 candidate approaches from the topic before Phase 1
 
-**From orchestrate** (called programmatically after brainstorming):
-- Approaches are already provided in the arguments
-- Skip candidate generation, proceed directly to Phase 1
+**From orchestrate** (called after brainstorming):
+- Approaches are already provided in the arguments — proceed directly to Phase 1
 
 ## Protocol
 
 ### Phase 1 — Independent Positions (parallel)
 
-Each participant receives: the topic, context files, and their assigned perspective. Each produces an independent position arguing for their assigned approach.
+Spawn ALL participants in one message. Each receives the topic, context, and their assigned perspective. Each produces a position paper: what they recommend, why, key tradeoffs, risks.
 
-**Full mode:** Read `skills/develop-subs/roles/provider-dispatch.md`. Also read `skills/develop-subs/roles/provider-context.md` for prompt construction. Follow **Read Config** and **Build Prompt** for each available provider. Spawn ALL in one message — true parallelism.
-
-1. **Claude position** — spawn via Agent tool:
-
-Read `models.define` from `.claude/orchestrate.conf` if it exists. If the value is "default" or not set, omit the `model:` parameter to inherit the session model. Otherwise use the configured model.
-
+**Claude/Agent participants:**
 ```
 Agent(
   subagent_type: "general-purpose",
-  model: <models.define>,  # omit if "default" to inherit session model
+  model: <models.define>,
   mode: "bypassPermissions",
   run_in_background: true,
-  prompt: "You are arguing from a codebase/domain perspective. Topic: {topic}. Context: {context}. Produce a position paper: what you recommend, why, key tradeoffs, risks. Be specific and cite concrete patterns from the codebase context."
+  prompt: "You are arguing from <perspective>. Topic: <topic>. Context: <context>. Produce a position paper: what you recommend, why, key tradeoffs, risks."
 )
 ```
 
-2. **External providers** — for each available provider, follow provider-dispatch **Build Prompt** then **Dispatch (Background)**:
-
-Template placeholders:
-- `{PROVIDER_ROLE}`: Codex → "Implementation depth: code patterns, technical feasibility, performance" / Gemini → "Ecosystem breadth: alternatives, prior art, industry patterns"
-- `{TOPIC}`: the debate topic
-- `{APPROACHES}`: the candidate approaches
-- `{INSTRUCTIONS}`: "Produce a position paper: what you recommend, why, key tradeoffs, risks."
-- Leave `{DESIGN_DOC}`, `{DIFF}`, `{PREVIOUS_FEEDBACK}` empty (stripped by Build Prompt)
-
-Fire each provider via provider-dispatch **Dispatch (Background)** — one `Bash(run_in_background: true)` per provider, all in the same message as the Claude Agent call.
-
-3. **Collect** — follow provider-dispatch **Collect Results** with **attended mode**. Collect all results before proceeding.
-
-**Degraded mode** (no external providers):
-
-Spawn exactly 2 Claude subagents as assigned advocates:
-
+**External providers:**
+```bash
+hooks/dispatch-provider.sh <provider> \
+  --role "<perspective>" \
+  --topic "<topic>" \
+  --approaches "<candidate approaches>" \
+  --instructions "Produce a position paper: what you recommend, why, key tradeoffs, risks."
 ```
-Agent A(
-  subagent_type: "general-purpose",
-  model: <models.define>,  # omit if "default" to inherit session model
-  mode: "bypassPermissions",
-  run_in_background: true,
-  prompt: "You are an assigned advocate for Approach 1: {approach_1}. Argue FOR this approach with full conviction. Topic: {topic}. Context: {context}. Produce a position paper."
-)
 
-Agent B(
-  subagent_type: "general-purpose",
-  model: <models.define>,  # omit if "default" to inherit session model
-  mode: "bypassPermissions",
-  run_in_background: true,
-  prompt: "You are an assigned advocate for Approach 2: {approach_2}. Argue FOR this approach with full conviction. Topic: {topic}. Context: {context}. Produce a position paper."
-)
-```
+Fire all as `run_in_background: true` in one message. Read `skills/ralph/roles/provider-dispatch.md` for collection rules. Collect in **attended** mode. Wait for all results before proceeding.
 
 ### Phase 2 — Cross-Review (parallel)
 
-Send ALL positions to each participant. Each critiques the others: agreements, disagreements, new concerns raised.
+Each participant receives ALL positions from Phase 1 and critiques them: agreements, disagreements, new concerns.
 
-**Full mode:** Read `skills/develop-subs/roles/provider-dispatch.md`. Also read `skills/develop-subs/roles/provider-context.md` for prompt construction. Follow **Read Config** and **Build Prompt** for each available provider. Spawn ALL in one message.
+**Claude/Agent participants:**
+```
+Agent(
+  run_in_background: true,
+  prompt: "Review these positions on <topic>:\n\n<all positions>\n\nCritique: agreements, disagreements, new concerns raised."
+)
+```
 
-- **Claude subagent**: receives all other positions via `Agent(run_in_background: true)`, critiques them
-- **External providers**: for each, follow provider-dispatch **Build Prompt** then **Dispatch (Background)**:
-  - `{PROVIDER_ROLE}`: same as Phase 1 for each provider
-  - `{TOPIC}`: the debate topic
-  - `{PREVIOUS_FEEDBACK}`: all positions from the previous round
-  - `{INSTRUCTIONS}`: "Critique the other positions: agreements, disagreements, new concerns."
-  - Leave `{APPROACHES}`, `{DESIGN_DOC}`, `{DIFF}` empty (stripped by Build Prompt)
+**External providers:**
+```bash
+FEEDBACK_FILE=$(mktemp /tmp/feedback-XXXX.md)
+# <write all positions from Phase 1 to $FEEDBACK_FILE>
 
-Fire all in one message. Collect via provider-dispatch **Collect Results** with **attended mode**.
+hooks/dispatch-provider.sh <provider> \
+  --role "<same perspective as Phase 1>" \
+  --topic "<topic>" \
+  --previous-feedback-file "$FEEDBACK_FILE" \
+  --instructions "Critique the other positions: agreements, disagreements, new concerns."
+```
 
-**Degraded mode:**
-- Agent A: receives Agent B's position, critiques it
-- Agent B: receives Agent A's position, critiques it
+Fire all in one message. Collect in **attended** mode.
 
-### Phase 3+ — Additional Rounds
+### Additional Rounds
 
-If `--rounds > 1`, repeat cross-review: each participant receives all critiques from the previous round and responds. Arguments should sharpen, not repeat.
-
-Run `--rounds - 1` additional cross-review rounds (Phase 2 counts as round 1).
+If `--rounds > 1`, repeat cross-review: each participant receives all critiques from the previous round and responds. Arguments should sharpen, not repeat. Run `--rounds - 1` additional rounds (Phase 2 counts as round 1).
 
 ### Synthesis
 
-After all rounds complete, Claude (the lead — you) reads ALL positions and ALL cross-review responses. Produce the output in the exact format below.
+After all rounds, Claude (the lead — you) reads ALL positions and ALL cross-review responses. Produce the output below.
 
 Do NOT delegate synthesis. You do this yourself.
 
 ## Output Format
-
-Produce exactly this structure:
 
 ```markdown
 ## Debate: <topic>
@@ -154,7 +127,7 @@ Produce exactly this structure:
 ### Approaches
 
 **Approach 1: <name>**
-<full approach text as provided by caller or generated in standalone mode>
+<full approach text>
 
 **Approach 2: <name>**
 <full approach text>
@@ -164,37 +137,19 @@ Produce exactly this structure:
 ### Consensus
 - [Points where all participants agree]
 
-### Majority (2/3)
-- [Points where 2 of 3 agree, with noted dissent]
-- "Claude and Codex prefer X. Gemini argues Y because..."
-
-### No consensus
-- [Points of unresolved disagreement]
-- Include tradeoffs for each position
+### Disagreement
+- [Points of unresolved disagreement with tradeoffs for each position]
+- Note which participants hold each position
 
 ### Recommendation
 Based on the above, I recommend [approach] because [reasoning].
 [Note key dissents and why they don't apply / do apply here.]
 ```
 
-In degraded mode (2 participants), use "Both agree" / "Disagreement" instead of Majority.
+Use "None" for empty sections. All four sections (Approaches, Consensus, Disagreement, Recommendation) MUST be present.
 
 ## After Synthesis
 
 **From orchestrate:** If full consensus → report "consensus" and proceed automatically. If disagreement → present the output to the user and ask them to pick.
 
 **Standalone:** Present the output to the user. Done.
-
-## Anti-Rationalization Checks
-
-Before outputting your synthesis, verify each of these. If any check fails, go back and fix it.
-
-1. **Did I skip cross-review?** Each participant MUST see and critique the others' positions. If you produced synthesis from only Phase 1, go back and run Phase 2.
-
-2. **Did I dump raw output instead of synthesizing?** The synthesis must be in YOUR voice, not copy-pasted provider responses. Rewrite if needed.
-
-3. **Did I skip degraded mode when providers were unavailable?** If no external provider binaries were found on PATH, you MUST have spawned 2 Claude subagents. If you just wrote a pros/cons list yourself, go back and spawn the agents.
-
-4. **Does the output have all five sections?** Approaches, Consensus, Majority, No consensus, Recommendation — all five MUST be present. Use "None" for empty sections.
-
-5. **Did I run the requested number of rounds?** Count the actual cross-review rounds. If fewer than `--rounds`, run the missing rounds.

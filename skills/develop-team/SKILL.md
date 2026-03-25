@@ -5,89 +5,29 @@ disable-model-invocation: true
 argument-hint: [--epic <id>] [--workers 10] [--max-review-cycles 10] [--max-impl-turns 100] [--max-review-turns 100]
 ---
 
-# Ralph Beans Implementation
+# Ralph — Team Variant
 
-Stateless orchestrator. All state lives in `beans` CLI. The lead derives what to do from `beans list` each turn.
+Read `skills/ralph/ralph-core.md` for the shared loop (configuration, setup, assess-and-act, result handling, spawning, rules). This file covers team-specific behavior only.
 
-## Configuration
+**Variant identifier:** When stripping `<!-- VARIANT:... -->` sections from role templates, keep `<!-- VARIANT:team -->` blocks and remove `<!-- VARIANT:subs -->` blocks.
 
-Flags (all optional, order-independent):
-- `--epic <id>` — scope to beans under this epic (uses `beans list --parent <id>`)
-- `--workers N` (default: 10) — parallel beans in-flight
-- `--max-review-cycles N` (default: 10) — max cycles before abandoning
-- `--max-impl-turns N` (default: 100) — max agent turns per implementer spawn
-- `--max-review-turns N` (default: 100) — max agent turns per review coordinator
+## Variant Setup (after core setup step 4)
 
-**`BEANS_LIST` command:** When `--epic <id>` is set, every `beans list` invocation MUST include `--parent <id>`.
-- With `--epic cv0e`: `beans list --parent cv0e --json`
-- Without `--epic`: `beans list --json`
-
-**Reading bean data:** Use `beans show <id> --json` via Bash. Do NOT pipe through `python3` or suppress stderr.
-
-**STOP rule:** After processing any event, STOP — end your turn. Do not narrate or summarize. Exceptions noted inline.
-
-## Setup (first turn only)
-
-1. `BEANS_LIST` — if no incomplete beans, stop
-2. Compute `MAIN_BEANS_PATH`: the absolute path to `.beans/` in the main checkout. Store this value — it will be substituted into all agent prompts as `{MAIN_BEANS_PATH}`. Example: if main checkout is `/Users/peel/wrk/board`, then `MAIN_BEANS_PATH=/Users/peel/wrk/board/.beans`.
-3. Discover available agents: list `.claude/agents/*.md`, `~/.claude/agents/*.md`, and `.claude/skills/develop-team/roles/*.md`. Read each file's opening lines to understand capabilities.
-4. **Worktree setup** (when `--workers > 1`): Read `roles/lead-procedures.md` → follow "Worktree Setup".
 5. `TeamCreate` with team_name: `"develop-team-{unix-timestamp}"`
 6. `TaskCreate` for each non-completed bean (subject: `"{bean-id}: {bean-title}"`, mirror `blocked-by` with `addBlockedBy`)
 7. Fall through to "Assess and Act"
 
-## Every Turn: Assess and Act
-
-Every bean goes through: **implement** → **review** (coordinator handles review internally).
-
-Run `BEANS_LIST`. Then:
-
-**Step 0 — Expand features:** For each **feature** bean in the list:
-- If `todo` with no blockers → `beans update {id} --status in-progress`
-- If `in-progress` → list children: `beans list --parent {id} --json`. Add children to work queue. `TaskCreate` for new children.
-- If `in-progress` AND all children `completed` → `beans update {id} --status completed`, mark team task completed
-
-After expansion, work only with **leaf beans** (task, bug):
-
-1. Count `in-progress` leaf beans = active_count
-2. Count `todo` leaf beans with no blockers = ready_beans
-3. available_slots = workers - active_count
-
-**If ready_beans > 0 AND available_slots > 0:**
-For each ready leaf bean (up to available_slots):
-- `beans update {id} --status in-progress`
-- Select agents for this bean (auto-select based on bean content)
-- Tag the bean: `--tag agent:{impl-name} --tag reviewers:{r1}+{r2}`
-- **Worktree assignment:** Check bean tags:
-  - `worktree` tag (or no tag when `--workers > 1`): assign available worktree slot. Tag bean: `--tag worktree-slot:{prefix}-{N}`
-  - `branch` tag: skip worktree, main checkout. Only ONE `branch`-tagged bean in-progress at a time.
-- Spawn implementer (see "Implementer Spawn"). Launch all spawns in ONE message. STOP.
-
-**If active_count > 0 AND ready_beans == 0:** STOP.
-
-**If active_count == 0 AND ready_beans == 0:**
-Read `roles/lead-procedures.md` → check for "Epic Holistic Review". If none → follow "Cleanup".
-
-## When a Teammate Messages You
+## Event Handling
 
 Act IMMEDIATELY on each message. Do NOT wait for other teammates. Do NOT batch completions. Do NOT send shutdown_request mid-work.
 
 **Implementer reports done:**
-- Present the implementer's diff to the user.
-- Read `roles/lead-procedures.md` → run "Lead Verification". If fails → spawn fix implementer, skip review. STOP.
-- `beans update {id} --remove-tag role:implement --tag role:review`
-- Spawn review coordinator (see "Review Coordinator Spawn"). STOP.
+- Follow "Handling Results → Implementer Result" in `skills/ralph/ralph-core.md`
+- On transition to review: `beans update {id} --remove-tag role:implement --tag role:review`
 
 **Review coordinator reports verdict:**
-The coordinator's message starts with `VERDICT {bean-id} {TYPE}`. Parse the bean ID and verdict type from the first line.
-- **`VERDICT {id} APPROVED`** → `beans update {id} --status completed`, mark team task completed. Check parent feature: if parent exists and all siblings completed → complete feature. "Assess and Act". STOP.
-- **`VERDICT {id} APPROVED_WITH_COMMENTS`** → present the comments to user. Parse `FLAGGED_BY:` line (second line). `beans update {id} --remove-tag role:review --tag role:review-fix-{cycle} --tag flagged-by:{reviewers}`. Spawn NEW implementer with suggestions (using `superpowers:receiving-code-review`). STOP.
-- **`VERDICT {id} ISSUES`** → present the issues to user. Parse `FLAGGED_BY:` line (second line). If cycle >= max_review_cycles → read `roles/lead-procedures.md` → "Abandon Bean". STOP. Otherwise: `beans update {id} --remove-tag role:review --tag role:review-fix-{cycle} --tag flagged-by:{reviewers}`, spawn fix implementer. STOP.
-- **Unparseable message from coordinator** → log warning, find bean with `role:review` tag. If cycle >= max_review_cycles → read `roles/lead-procedures.md` → "Abandon Bean". Otherwise: increment cycle, respawn review coordinator for that bean. STOP.
-
-**Review coordinator idle (no prior verdict):** Stale review — coordinator hit max_turns. Find bean with `role:review` tag. If cycle >= max_review_cycles → read `roles/lead-procedures.md` → "Abandon Bean". Otherwise: increment cycle, respawn review coordinator. STOP.
-
-**Review coordinator idle (already reported verdict):** IGNORE. STOP.
+- Follow "Handling Results → Review Verdict" in `skills/ralph/ralph-core.md`
+- On APPROVED: also mark team task completed
 
 **Implementer requests integration test lock:**
 - No holder → grant: `SendMessage(type: "message", recipient: <name>, content: "Integration test lock granted. Notify me when done.", summary: "Lock granted")`
@@ -95,65 +35,41 @@ The coordinator's message starts with `VERDICT {bean-id} {TYPE}`. Parse the bean
 - Lock released → clear tag, notify queued requesters
 - Track via bean tag: `integration-lock:{teammate-name}`
 
-**Implementer idle (no prior message):** Stale — read `roles/lead-procedures.md` → "Abandon Bean". STOP.
+**Implementer idle (no prior message):** Stale — read `skills/ralph/roles/lead-procedures.md` → "Abandon Bean". STOP.
 
 **Implementer idle (already reported):** IGNORE. STOP.
+
+**Review coordinator idle (no prior verdict):** Stale review — coordinator hit max_turns. Find bean with `role:review` tag. If cycle >= max_review_cycles → "Abandon Bean". Otherwise: increment cycle, respawn review coordinator. STOP.
+
+**Review coordinator idle (already reported verdict):** IGNORE. STOP.
 
 **Noise messages ("Noted", "Acknowledged", etc.):** IGNORE. STOP.
 
 **User interrupts (esc) or says to proceed:** "Assess and Act" immediately. Re-read tags, respawn agents for `in-progress` beans with no active agents.
 
-## Spawning Agents
+## Agent Spawn Config
 
 Both implementers and review coordinators are teammates (spawned with `team_name`). The coordinator internally spawns reviewer sub-tasks — the lead never spawns reviewers directly.
 
-### Implementer Spawn
-
-1. Read `.claude/skills/develop-team/roles/implementer.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`)
-2. If worktree assigned: omit the `## Git Coordination` section (between `<!-- CONDITIONAL -->` markers)
-3. For fix cycles, append issues under `## Review Issues to Address`
-4. Spawn:
 ```
-Task(
-  name: "impl-{bean-slug}[-fix{cycle}]",
+Agent(
+  name: "impl-{bean-slug}[-fix{cycle}]",    # or "review-{bean-slug}-c{cycle}"
   subagent_type: "general-purpose",
-  model: <models.develop>,  # from orchestrate.conf; if "default", omit to inherit session model
+  model: <models.develop>,  # from orchestrate.json; if "default", omit to inherit session model
   mode: "bypassPermissions",
   team_name: <team>,
   run_in_background: true,
-  max_turns: <max-impl-turns>,
-  prompt: ...
+  max_turns: <max-impl-turns or max-review-turns>,
+  prompt: <substituted template>
 )
 ```
 
-### Review Coordinator Spawn
+## Feature Expansion Extra
 
-**Cycle 1:** Auto-select domain agents relevant to the bean (match bean title/description/type against agent descriptions discovered at startup). If no domain agents match, use `baseline` as fallback.
-**Cycle 2+:** Use only the reviewers from the bean's `flagged-by:*` tag (set by previous verdict).
+When expanding features in "Assess and Act", also `TaskCreate` for new children discovered during expansion.
+When completing features, also mark the team task completed.
 
-1. Read `.claude/skills/develop-team/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
-2. Spawn:
-```
-Task(
-  name: "review-{bean-slug}-c{cycle}",
-  subagent_type: "general-purpose",
-  model: <models.develop>,  # from orchestrate.conf; if "default", omit to inherit session model
-  mode: "bypassPermissions",
-  team_name: <team>,
-  run_in_background: true,
-  max_turns: <max-review-turns>,
-  prompt: ...
-)
-```
+## Additional Rules
 
-## Rules
-
-- Always `run_in_background: true` — never block on Task calls
-- The lead spawns only two kinds of agents: **implementers** and **review coordinators**. Both are teammates (`team_name` present). The lead never spawns reviewers directly — the coordinator handles that.
-- Models: implementers=models.develop, coordinators=models.develop (reviewers=models.develop internally), epic holistic review=opus. Read model config from orchestrate.conf; "default" means omit model parameter to inherit session model.
-- Fresh context: one coordinator per bean per review cycle — never resume coordinators
-- Fresh implementer context per cycle — never resume implementers
-- Never implement beans yourself — delegate only
+- The lead spawns only two kinds of agents: **implementers** and **review coordinators**. Both are teammates (`team_name` present).
 - Never send shutdown_request except during final Cleanup
-- Safe to kill and restart — beans CLI holds all state
-- **Bean commands from worktree context:** After any `cd {worktree_path}`, use `beans --beans-path $MAIN_BEANS_PATH` for all subsequent `beans` commands until you return to the main checkout. Alternatively, always use `--beans-path $MAIN_BEANS_PATH` for safety — it is harmless when already in main.

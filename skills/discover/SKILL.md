@@ -1,7 +1,7 @@
 ---
 name: fiddle:discover
 description: Run the DISCOVER phase — gather project context via discover-docs, research ecosystem with external providers, and challenge scope assumptions. Use standalone or as part of orchestrate.
-argument-hint: <topic> [--skip-docs] [--skip-challenge] [--providers codex]
+argument-hint: <topic> [--skip-docs] [--skip-challenge]
 ---
 
 # Discover
@@ -18,16 +18,13 @@ Parse from `{ARGS}`:
 |---|---|---|
 | `--skip-docs` | false | Skip discover-docs — go straight to research and challenge |
 | `--skip-challenge` | false | Skip the challenge step after scope confirmation |
-| `--providers <list>` | from config | Override provider list for this phase |
 
 ### Config File
 
-Read `orchestrate.conf` (project root) if it exists. Extract:
-- `providers.discover` — default provider list for this phase (default: `["codex"]`)
+Read `orchestrate.json` (project root) if it exists. Extract:
+- `providers.phases.discover` — provider list for this phase (default: `["codex"]`)
 - Provider declarations (`providers.<name>.command`, `.flags`) for each provider
 - `providers.timeout` — attended/unattended timeouts
-
-CLI `--providers` overrides the config file value.
 
 ## Steps
 
@@ -46,17 +43,16 @@ This reads existing docs, CLAUDE.md, beans, and relevant source files. It produc
 
 If providers are configured (default: codex):
 
-Read the provider dispatch and context procedures (resolve relative to this skill's base directory):
-- `../develop-subs/roles/provider-dispatch.md`
-- `../develop-subs/roles/provider-context.md`
+Read `../ralph/roles/provider-dispatch.md` for collection rules. For each provider, dispatch via:
 
-Follow the dispatch procedure for each provider with these template values:
+```bash
+hooks/dispatch-provider.sh <provider> \
+  --role "Research analyst" \
+  --topic "<topic>" \
+  --instructions "Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
+```
 
-- `PROVIDER_ROLE` = "Research analyst"
-- `TOPIC` = `<topic>`
-- `INSTRUCTIONS` = "Research: ecosystem patterns, prior art, implementation approaches, potential pitfalls. Be specific and cite concrete examples."
-
-Dispatch all providers in parallel. Collect results in **attended** mode.
+Fire all providers in parallel (`run_in_background: true`). Collect results in **attended** mode.
 
 If no provider CLI is available, skip and proceed with Claude's internal knowledge only.
 

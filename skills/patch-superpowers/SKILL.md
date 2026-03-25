@@ -142,10 +142,10 @@ With:
 With:
 
 ```
-- Read `orchestrate.conf` (project root). If `plans.path` is set, use `{plans.path}/specs`. Otherwise use `docs/superpowers/specs`.
+- Read `orchestrate.json` (project root). If `plans.path` is set, use `{plans.path}/specs`. Otherwise use `docs/superpowers/specs`.
 - Write the validated design (spec) to `{specs_dir}/YYYY-MM-DD-<topic>-design.md`
   - (User preferences for spec location override both config and defaults)
-- If `orchestrate.conf` has `plans.commit = false`, skip the git commit of the spec file.
+- If `orchestrate.json` has `plans.commit = false`, skip the git commit of the spec file.
 ```
 
 Append marker: `<!-- [BEANS-PATCHED] -->`
@@ -183,7 +183,7 @@ Parse from `{ARGS}`:
 
 ### Plans Config
 
-Read `orchestrate.conf` (project root) if it exists. Extract from `plans {}` block:
+Read `orchestrate.json` (project root) if it exists. Extract from `plans {}` block:
 - `plans.path` — parent directory for specs and plans (default: `docs/superpowers`)
 - `plans.commit` — whether to git commit plan/spec files (default: `true`)
 
@@ -356,7 +356,7 @@ Append marker: `<!-- [BEANS-PATCHED] -->`
 
 Read all three patched files and confirm:
 - Brainstorming → has ARGS line with `--skip-panel` and `--from-orchestrate` flags, checklist has panel enrichment item, process flow has panel and `--from-orchestrate` nodes (intercepting after spec review), terminal state is flag-dependent, spec path is config-aware
-- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.conf` for `plans.path` (parent dir) and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
+- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.json` for `plans.path` (parent dir) and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
 - Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets
 - All three have `[BEANS-PATCHED]` marker
 

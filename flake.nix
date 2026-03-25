@@ -2,12 +2,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     devenv.url = "github:cachix/devenv";
-    llm-agents.url = "github:numtide/llm-agents.nix";
-    flake-utils.url = "github:numtide/flake-utils";
-    fenix.url = "github:nix-community/fenix";
-    fenix.inputs.nixpkgs.follows = "nixpkgs";
-    tilth.url = "github:jahala/tilth";
-    tilth.inputs.nixpkgs.follows = "nixpkgs";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    ai-devtools.url = "path:/Users/peel/wrk/ai-devtools";
   };
 
   nixConfig = {
@@ -21,69 +17,30 @@
     ];
   };
 
-  outputs = {
-    nixpkgs,
-    devenv,
-    flake-utils,
-    ...
-  } @ inputs:
-    flake-utils.lib.eachDefaultSystem (
-      system: let
-        pkgs = import nixpkgs {
-          inherit system;
-          config.allowUnfree = true;
-          config.allowUnsupportedSystem = true;
-        };
-      in rec {
-        devShell = let
-          fenixPkgs = inputs.fenix.packages.${system};
-          clashRustToolchain = fenixPkgs.combine [
-            fenixPkgs.stable.cargo
-            fenixPkgs.stable.rustc
+  outputs = inputs @ {flake-parts, ...}:
+    flake-parts.lib.mkFlake {inherit inputs;} {
+      systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin"];
+
+      imports = [
+        inputs.devenv.flakeModule
+        inputs.ai-devtools.flakeModules.ai-tools
+      ];
+
+      perSystem = {pkgs, ...}: {
+        ai-tools.enable = true;
+
+        devenv.shells.default = {
+          packages = [
+            pkgs.alejandra
+            pkgs.gh
+            pkgs.jq
           ];
-          clashRustPlatform = pkgs.makeRustPlatform {
-            cargo = clashRustToolchain;
-            rustc = clashRustToolchain;
+          difftastic.enable = true;
+          git-hooks.hooks = {
+            alejandra.enable = true;
+            deadnix.enable = true;
           };
-          clash = clashRustPlatform.buildRustPackage {
-            pname = "clash-sh";
-            version = "0.2.0";
-            src = pkgs.fetchFromGitHub {
-              owner = "clash-sh";
-              repo = "clash";
-              rev = "v0.2.0";
-              sha256 = "sha256-GvL4IHXTuzj3Nqip+NgLIkwYVv0KvJLMsrW/yYwfslg=";
-            };
-            cargoHash = "sha256-RZPH5910qygbqUM5LgZoV9jaxRp1EvqMloOK4P0mBzI=";
-            doCheck = false;
-          };
-        in
-          devenv.lib.mkShell {
-            inherit inputs pkgs;
-            modules = [
-              rec {
-                packages = with inputs.llm-agents.packages.${system}; [
-                  claude-code
-                  codex
-                  pkgs.alejandra
-                  pkgs.gh
-                  pkgs.jq
-                ];
-                difftastic.enable = true;
-                git-hooks.hooks = {
-                  alejandra.enable = true;
-                  deadnix.enable = true;
-                };
-                enterShell = ''
-                  if [ -d "$HOME/.claude-personal" ]; then
-                    export CLAUDE_CONFIG_DIR="$HOME/.claude-personal"
-                  else
-                    export CLAUDE_CONFIG_DIR="$HOME/.claude"
-                  fi
-                '';
-              }
-            ];
-          };
-      }
-    );
+        };
+      };
+    };
 }
