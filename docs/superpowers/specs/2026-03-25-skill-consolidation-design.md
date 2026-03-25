@@ -328,6 +328,137 @@ Each step: consolidate → verify behavior coverage → delete old skill → com
 
 This is the explicit tradeoff: fewer files but larger individual files. The develop skill is the largest concern at ~325 lines, but most of that is two clearly separated mode sections that are only read when the corresponding mode is selected. If a file becomes hard to navigate, the ralph pattern (separate `roles/*.md` files referenced by the main skill) can be applied — extract mode-specific content to `skills/develop/mode-subs.md` and `skills/develop/mode-team.md` referenced via "Read `skills/develop/mode-subs.md`". This is a future option, not part of this migration.
 
+## Final State: Documentation
+
+After migration, the project README and docs/README should reflect the consolidated skill inventory.
+
+### README.md
+
+```markdown
+# Fiddle
+
+Claude Code plugin for orchestrating a four-phase development lifecycle with multi-model support.
+
+## Orchestrate
+
+`/fiddle:orchestrate <topic>` chains four phases. Each phase is also a standalone skill.
+
+**DISCOVER** [`/fiddle:discover`](skills/discover/SKILL.md) — Scan project docs, research the ecosystem via external providers, and challenge scope assumptions until every branch is resolved.
+
+**DEFINE** [`/fiddle:define`](skills/define/SKILL.md) — Brainstorm approaches, run a multi-model adversarial panel, challenge the chosen design, then produce an implementation plan with sized beans.
+
+**DEVELOP** [`/fiddle:develop`](skills/develop/SKILL.md) — Execute beans via ralph subs (`--execution subs`, background agents) or ralph team (`--execution team`, persistent teammates), or hands-on. Holistic review via external providers when done.
+
+**DELIVER** [`/fiddle:deliver`](skills/deliver/SKILL.md) — Drift analysis via external providers, update technical docs, close the epic.
+
+> [!NOTE]
+> Any CLI that accepts a prompt on stdin works as a provider (Codex, Gemini, Copilot, etc). Configure per phase in [`orchestrate.json`](orchestrate.json).
+
+## Primitives
+
+Focused tools that phases compose internally, but are also useful standalone.
+
+| Primitive | Description |
+|-----------|-------------|
+| [`fiddle:panel`](skills/panel/SKILL.md) | Multi-model adversarial debate — participants argue positions and cross-review. |
+| [`fiddle:challenge`](skills/challenge/SKILL.md) | Walk the decision tree on any plan or design until shared understanding. |
+| [`fiddle:capture`](skills/capture/SKILL.md) | Record an ADR, user feedback signal, or backlog item (`--type adr\|feedback\|backlog`). |
+| [`fiddle:discover-docs`](skills/discover-docs/SKILL.md) | Socratic dialogue to bootstrap or review project docs. |
+
+## Three Ways to Work
+
+| Tier | When | Example |
+|------|------|---------|
+| **Just beans** | Simple bug fix, known solution | `beans create "Fix X" -t bug` → fix → done |
+| **Beans + primitives** | Investigation, needs a second opinion | `challenge` to interrogate root cause, `capture` to record a decision |
+| **Beans + phases** | New feature, full lifecycle | `orchestrate` → discover → define → develop → deliver |
+
+## Language Support
+
+Review checklists in [`skills/ralph/checklists/`](skills/ralph/checklists/) provide language-specific quality rules. The review coordinator auto-detects the language from the diff.
+
+Shipped: `go`, `dart`, `typescript`. To add a language, create `skills/ralph/checklists/<lang>.md`.
+
+## Configuration
+
+Orchestrate reads [`orchestrate.json`](orchestrate.json) from the project root. All keys optional — defaults apply when omitted. See [`fiddle:orchestrate`](skills/orchestrate/SKILL.md) for the full reference.
+
+## Install
+
+Requires [superpowers](https://github.com/obra/superpowers) plugin.
+
+\`\`\`bash
+# superpowers (dependency)
+/plugin install superpowers
+
+# fiddle — from marketplace
+/plugin marketplace add github:peel/peel-marketplace
+/plugin install fiddle
+
+# fiddle — from source
+claude --plugin-dir /path/to/fiddle
+\`\`\`
+
+After install, run `/fiddle:patch-superpowers` to apply beans integration. Providers are auto-detected on session start.
+
+### Optional: Clash (conflict detection)
+
+When running parallel workers in worktrees, fiddle includes a PreToolUse hook that warns agents before writing to files that conflict with another worktree. This requires [clash](https://github.com/clash-sh/clash):
+
+\`\`\`bash
+# via cargo
+cargo install clash-sh
+
+# via nix
+nix profile install github:clash-sh/clash
+\`\`\`
+
+The hook is advisory (never blocks) and silently skips if clash is not installed.
+```
+
+### docs/README.md
+
+```markdown
+# Project Documentation
+
+Living docs for product and technical decisions. Persistent knowledge that informs all work — separate from beans (actionable work) and plans (session-scoped execution).
+
+**Flow:** `/discover-docs` → `/challenge` → brainstorming → `/panel` → `/challenge` → writing-plans → beans → `/develop` → `/deliver`
+
+## Structure
+
+\`\`\`
+docs/
+├── product/
+│   ├── VISION.md        — what, who, why, non-goals
+│   ├── MARKET.md         — landscape, competitors, positioning
+│   ├── PRICING.md        — business model, costs, revenue
+│   ├── GTM.md            — distribution, channels, messaging
+│   └── FEEDBACK.md       — user signals (append-only)
+├── technical/
+│   ├── SYSTEM.md         — how it works now
+│   ├── decisions/
+│   │   └── NNN-title.md  — ADRs (append-only)
+│   └── RUNBOOKS.md       — deploy, rollback, common issues
+└── BACKLOG.md            — pre-bean ideas and debt (append-only)
+\`\`\`
+
+## Skills
+
+- `/discover-docs [scope]` — Socratic dialogue to bootstrap or review docs
+- `/capture --type adr <title>` — new architecture decision record
+- `/capture --type feedback <signal>` — append user feedback
+- `/capture --type backlog <idea>` — append idea or debt item
+- `/deliver [--epic <id>] [--dry-run]` — post-ship update of technical docs, ADRs, backlog
+
+## Conventions
+
+- Product docs: overwrite freely. Technical decisions: append-only, supersede with new records.
+- Append-only logs (FEEDBACK, BACKLOG, decisions/) are never edited or deleted.
+- Every curated doc has a `Last reviewed:` date.
+- Keep it short. A doc you won't read doesn't exist.
+```
+
 ## What This Does NOT Change
 
 - The four-phase lifecycle (discover → define → develop → deliver)
