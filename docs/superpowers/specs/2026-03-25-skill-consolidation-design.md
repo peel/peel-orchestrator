@@ -237,7 +237,7 @@ After updating, re-run `patch-superpowers` to refresh any already-patched superp
 
 ## Files Changed
 
-### Deleted (7 skill directories)
+### Deleted (7 skill directories + 1 script directory)
 
 ```
 skills/define-beans/       → absorbed into skills/define/
@@ -247,6 +247,7 @@ skills/deliver-docs/       → absorbed into skills/deliver/
 skills/adr/                → replaced by skills/capture/
 skills/feedback/           → replaced by skills/capture/
 skills/backlog/            → replaced by skills/capture/
+scripts/                   → removed (orchestrate-status.sh unused TUI dashboard)
 ```
 
 ### Created (1 skill directory)
