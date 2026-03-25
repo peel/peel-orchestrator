@@ -54,6 +54,15 @@ When a plan task needs 3+ cycles:
 
 4. Set the feature's own `--blocked-by` to external dependencies (other tasks/features from the plan that must complete first).
 
+## Shared Contracts (for parallel beans)
+
+When an epic has multiple features/tasks that will run in parallel worktrees and touch related code, define shared contracts upfront in the **epic bean body** before creating children:
+
+- **Types and interfaces:** Function signatures, struct definitions, interface contracts that multiple beans will implement or call
+- **Integration points:** Which package exports what, expected function names, shared constants
+
+Include a `## Contracts` section in the epic bean body. Each child bean's description should reference it: `"See parent epic contracts for shared types."` This prevents parallel workers from making incompatible implementation choices.
+
 ## Dependencies
 
 - **Between children of the same feature:** Use `--blocked-by` between task beans when one behavior depends on another's code.

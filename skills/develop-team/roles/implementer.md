@@ -33,7 +33,7 @@ You MUST use these superpowers skills during implementation:
 **IMPORTANT: Do NOT change bean status** (e.g., `--status completed`, `--status todo`). Only the team lead manages status transitions. You may update the bean body (progress entries via `--body-append`) — always with `--beans-path {MAIN_BEANS_PATH}`.
 
 1. If `{WORKTREE_PATH}` is set, `cd {WORKTREE_PATH}` first
-2. Read the codebase to understand context around the change
+2. Read the codebase to understand context around the change. If the bean description references parent contracts (`## Contracts` in the parent epic/feature), read the parent bean with `beans --beans-path {MAIN_BEANS_PATH} show {PARENT_ID}` and use those shared types/signatures — do not invent your own.
 3. Follow TDD (superpowers:test-driven-development):
    - If `## Progress` already exists in the bean body, a previous agent was here. Read the progress entries and check the codebase (tests, commits) to understand what was completed. Continue from where it left off — do not redo finished work.
    - If no `## Progress` exists: `beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-append "## Progress"`

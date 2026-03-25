@@ -83,6 +83,7 @@ When no incomplete beans remain:
 2. **Merge workers into integration worktree:**
    - Integration worktree: `.worktrees/{epic-id}-integration` (epic) or `.worktrees/integration` (non-epic)
    - `cd {integration-worktree-path}`
+   - Optionally run `clash status` to check for conflicts and merge conflict-free workers first
    - For each completed bean with `worktree-slot:*` tag: `git merge {prefix}-{N}/scratch`, then `git worktree remove .worktrees/{prefix}-{N}` and `git branch -d {prefix}-{N}/scratch`
 3. Report final status and integration branch name to user.
 4. Ask user: "Work is on branch `{integration-branch}`. What would you like to do?"
