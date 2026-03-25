@@ -62,8 +62,8 @@ Do NOT run tests or build yourself. Use the file contents as evidence. If the ou
 - Could you tell the test was written before the code? (clear intent, minimal setup)
 
 ### Code Quality
-- Idiomatic Go? (no old patterns like `interface{}`, custom min/max)
 - Follows project conventions? (check CLAUDE.md)
+{LANGUAGE_CHECKLIST}
 - No comments unless logic is non-obvious?
 - No PII in logs or error contexts?
 - No over-engineering beyond what the bean requested?

@@ -58,7 +58,7 @@ cd {BEANS_ROOT} && beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-
    - Run all applicable verification commands via Bash tool
    - Confirm all pass with zero failures before proceeding
 <!-- VARIANT:team -->
-   - Integration tests (`go test ./...` without `-short`) require exclusive access to Docker services. To run them, you MUST first message the team lead: `SendMessage(type: "message", recipient: "lead", content: "Requesting integration test lock for {BEAN_ID}", summary: "Integration test lock request")`. Wait for the lead to confirm before running. When done, notify the lead so others can proceed.
+   - Integration tests that require shared resources (databases, Docker, etc.) need exclusive access. To run them, you MUST first message the team lead: `SendMessage(type: "message", recipient: "lead", content: "Requesting integration test lock for {BEAN_ID}", summary: "Integration test lock request")`. Wait for the lead to confirm before running. When done, notify the lead so others can proceed.
 <!-- END VARIANT:team -->
 6. Commit your changes with the bean ID in the message:
    ```

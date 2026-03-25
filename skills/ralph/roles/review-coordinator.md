@@ -30,8 +30,9 @@ You are a review coordinator. Your job is to manage the review pipeline for one 
 For each reviewer agent listed above:
 1. Read `skills/ralph/roles/reviewer.md` as the base prompt
 2. Replace placeholders: `{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}` with the values from this prompt
-3. If the agent is a domain expert (not `baseline`), read its definition from `.claude/agents/{agent-name}.md` and append the content under a `## Domain Expertise` header in the prompt
-4. If the agent is `baseline` (fallback when no domain experts matched), use the reviewer.md prompt as-is (no domain expertise appended)
+3. Replace `{LANGUAGE_CHECKLIST}`: read the matching template from `skills/ralph/checklists/` based on the project's primary language (e.g., `go.md`, `dart.md`, `typescript.md`). Detect from file extensions in the bean's diff or from CLAUDE.md. If no matching template, remove the placeholder.
+4. If the agent is a domain expert (not `baseline`), read its definition from `.claude/agents/{agent-name}.md` and append the content under a `## Domain Expertise` header in the prompt
+5. If the agent is `baseline` (fallback when no domain experts matched), use the reviewer.md prompt as-is (no domain expertise appended)
 
 ### Step 2: Spawn Reviewers
 

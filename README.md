@@ -31,6 +31,12 @@ Claude Code plugin for orchestrating a four-phase development lifecycle with mul
 | [`fiddle:backlog`](skills/backlog/SKILL.md) | Append an idea or tech debt item. |
 | [`fiddle:patch-superpowers`](skills/patch-superpowers/SKILL.md) | Re-apply beans integration patches after superpowers updates. |
 
+## Language Support
+
+Review checklists in [`skills/ralph/checklists/`](skills/ralph/checklists/) provide language-specific quality rules for code review. The review coordinator auto-detects the language from the diff and injects the matching checklist.
+
+Shipped: `go`, `dart`, `typescript`. To add a language, create `skills/ralph/checklists/<lang>.md` with checklist items (markdown list, same format as existing files).
+
 ## Configuration
 
 Orchestrate reads [`orchestrate.conf`](orchestrate.conf) (HCL) from the project root. All blocks optional — defaults apply when omitted. See [`fiddle:orchestrate`](skills/orchestrate/SKILL.md) for the full reference.
