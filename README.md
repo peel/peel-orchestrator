@@ -52,3 +52,17 @@ claude --plugin-dir /path/to/fiddle
 ```
 
 After install, run `/fiddle:patch-superpowers` to apply beans integration. Providers are auto-detected on session start.
+
+### Optional: Clash (conflict detection)
+
+When running parallel workers in worktrees, fiddle includes a PreToolUse hook that warns agents before writing to files that conflict with another worktree. This requires [clash](https://github.com/clash-sh/clash):
+
+```bash
+# via cargo
+cargo install clash-sh
+
+# via nix
+nix profile install github:clash-sh/clash
+```
+
+The hook is advisory (never blocks) and silently skips if clash is not installed.
