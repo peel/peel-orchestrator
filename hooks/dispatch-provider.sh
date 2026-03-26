@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Dispatch a prompt to an external provider CLI.
-# Usage: dispatch-provider.sh <provider-name> --role <role> --topic <topic> --instructions <text>
+# Usage: dispatch-provider.sh <provider-name> [--check] --role <role> --topic <topic> --instructions <text>
 #   [--approaches <text>] [--design-doc-file <path>] [--diff-file <path>] [--previous-feedback-file <path>]
+#
+# --check: Validate provider is configured and CLI is on PATH, then exit 0/1.
+#          Outputs JSON: {"provider":"<name>","available":true/false,"command":"..."}
 #
 # Reads orchestrate.json for provider command/flags, builds prompt from template,
 # strips empty sections, pipes to provider CLI, outputs result to stdout.
@@ -22,11 +25,13 @@ DESIGN_DOC=""
 DIFF=""
 PREVIOUS_FEEDBACK=""
 
-PROVIDER="${1:?Usage: dispatch-provider.sh <provider> --role ... --topic ... --instructions ...}"
+PROVIDER="${1:?Usage: dispatch-provider.sh <provider> [--check] --role ... --topic ... --instructions ...}"
 shift
 
+CHECK_ONLY=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --check) CHECK_ONLY=true; shift ;;
     --role) ROLE="$2"; shift 2 ;;
     --topic) TOPIC="$2"; shift 2 ;;
     --instructions) INSTRUCTIONS="$2"; shift 2 ;;
@@ -38,15 +43,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -z "$ROLE" ]] && { echo "--role is required" >&2; exit 1; }
-[[ -z "$TOPIC" ]] && { echo "--topic is required" >&2; exit 1; }
-[[ -z "$INSTRUCTIONS" ]] && { echo "--instructions is required" >&2; exit 1; }
-
 # --- Read config ---
 [[ -f "$CONF" ]] || { echo "Config not found: $CONF" >&2; exit 1; }
 
 COMMAND=$(jq -r --arg p "$PROVIDER" '.providers[$p].command // empty' "$CONF")
 FLAGS=$(jq -r --arg p "$PROVIDER" '.providers[$p].flags // empty' "$CONF")
+
+# --- Check mode: validate and exit ---
+if [[ "$CHECK_ONLY" == true ]]; then
+  CLI_BIN="${COMMAND%% *}"  # first word of command, e.g. "codex" from "codex exec"
+  if [[ -n "$COMMAND" ]] && command -v "$CLI_BIN" &>/dev/null; then
+    echo "{\"provider\":\"$PROVIDER\",\"available\":true,\"command\":\"$COMMAND\"}"
+    exit 0
+  else
+    echo "{\"provider\":\"$PROVIDER\",\"available\":false,\"command\":\"$COMMAND\"}"
+    exit 1
+  fi
+fi
+
+[[ -z "$ROLE" ]] && { echo "--role is required" >&2; exit 1; }
+[[ -z "$TOPIC" ]] && { echo "--topic is required" >&2; exit 1; }
+[[ -z "$INSTRUCTIONS" ]] && { echo "--instructions is required" >&2; exit 1; }
 
 [[ -z "$COMMAND" ]] && { echo "No config for provider '$PROVIDER' in $CONF" >&2; exit 1; }
 

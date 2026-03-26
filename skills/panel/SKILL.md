@@ -21,14 +21,19 @@ Parse from `{ARGS}`:
 
 If `--context` files are provided, read each with the Read tool. Include their contents as context for all participants.
 
-## Participants
+## Participants — Provider Gate (MUST execute before Phase 1)
 
-Read `orchestrate.json` → `providers.phases.define` for the provider list. For each provider, check if its CLI binary is on PATH:
+You MUST perform these steps in order. Do NOT skip to degraded mode without completing them.
+
+**Step 1.** Run the dispatch script in check mode for each provider. You MUST run this via the Bash tool:
 ```bash
-which <first-word-of-command>   # e.g. "codex" for "codex exec", "gemini" for "gemini"
+hooks/dispatch-provider.sh codex --check; hooks/dispatch-provider.sh gemini --check
 ```
+Each outputs JSON: `{"provider":"<name>","available":true/false,"command":"..."}`. Collect the results.
 
-**If at least one external provider is available (full mode):**
+**Step 2.** Select mode based on results:
+
+**Full mode** (at least one provider has `"available":true`):
 
 | Participant | Perspective | Dispatch |
 |---|---|---|
@@ -36,16 +41,16 @@ which <first-word-of-command>   # e.g. "codex" for "codex exec", "gemini" for "g
 | **Codex** | Implementation depth: code patterns, feasibility, performance | `hooks/dispatch-provider.sh codex ...` |
 | **Gemini** | Ecosystem breadth: alternatives, prior art, industry patterns | `hooks/dispatch-provider.sh gemini ...` |
 
-Only include providers whose CLI is available. Claude is always present.
+Only include providers that returned `"available":true`. Claude is always present.
 
-**If no external providers are available (degraded mode):**
+**Degraded mode** (all providers returned `"available":false` or dispatch script not found):
 
 | Participant | Perspective | Dispatch |
 |---|---|---|
 | **Advocate A** | Assigned advocate for Approach 1 | `Agent(run_in_background: true)` |
 | **Advocate B** | Assigned advocate for Approach 2 | `Agent(run_in_background: true)` |
 
-Read `models.define` from `orchestrate.json`. If "default" or not set, omit the `model:` parameter to inherit session model.
+Read `models.define` from `orchestrate.json` (project root). If "default" or not set, omit the `model:` parameter to inherit session model.
 
 ## Invocation Context
 
