@@ -97,6 +97,30 @@ BLOCKED
     3. If plan is wrong → tag needs-attention, present to user
 ```
 
+## Implementer Template Enrichments
+
+The new `develop-swarm/roles/implementer.md` adds these sections beyond the current template:
+
+**Before You Begin (between workspace setup and TDD):**
+Encourage the implementer to surface questions about requirements, approach, dependencies, and assumptions BEFORE starting work. Questions during implementation are more expensive than questions before. Use the NEEDS_CONTEXT status if anything is unclear.
+
+**Self-Review Checklist (before commit):**
+Structured self-assessment before reporting DONE:
+- Completeness: Does the implementation cover all acceptance criteria?
+- Quality: Would this pass code review? Any shortcuts taken?
+- Discipline: Did I follow TDD? Any production code without a test?
+- Testing: Edge cases covered? Tests verify behavior, not implementation?
+
+**When You're Stuck (between TDD and reporting):**
+Specific signals for when to stop and report BLOCKED:
+- Reading file after file without making progress
+- Spending more than 5 turns on a single failing test
+- Realizing the task requires changes outside the bean's scope
+- Discovering the acceptance criteria are contradictory
+
+**Codebase Context section:**
+The lead injects relevant files and parent contracts into `{CODEBASE_CONTEXT}`. The implementer reads this section instead of exploring the codebase.
+
 ## Conflict Resolution
 
 Everything needed is in git. No separate clash notes file, no broadcast mechanism, no activity store lookups.
@@ -242,6 +266,8 @@ Single loop, runs every turn. No variant-specific sections.
      Reset slot: cd .worktrees/{prefix}-{N} && git reset --hard
        epic/{epic-id} && git clean -fd
      Read("skills/develop-swarm/roles/implementer.md") → substitute placeholders
+     Curate context: read parent bean (contracts), read key files
+       referenced in the bean body → inject under {CODEBASE_CONTEXT}
      Agent(
        name: "impl-{bean-slug}",
        subagent_type: "general-purpose",
@@ -252,6 +278,11 @@ Single loop, runs every turn. No variant-specific sections.
      )
      beans update {id} --tag role:implement
        --tag spawned-at:$(date +%s) --tag bg-task:{task_id}
+
+   Model selection per bean:
+   - 1-2 files, concrete acceptance criteria → fast model
+   - 3+ files or cross-module coordination → standard model
+   - Design judgment or codebase-wide understanding → most capable
 
    Launch ALL spawns in one message. STOP.
 
@@ -375,6 +406,36 @@ docs/technical/decisions/               → new ADR superseding 001 and 002
 ```
 hooks/clash-check.sh
 hooks/crops-report-gate.sh
+```
+
+## Red Flags
+
+Negative constraints for the lead. Agents follow these more reliably than positive procedures.
+
+- **Never** dispatch an implementer without the full bean body — don't make subagents read the bean themselves
+- **Never** dispatch without injecting curated codebase context — don't burn implementer turns on exploration
+- **Never** ignore NEEDS_CONTEXT or BLOCKED — something must change before re-dispatch
+- **Never** merge to integration without post-rebase verification passing
+- **Never** let review cycles exceed `max_review_cycles` without escalating to the user
+- **Never** skip review even if the implementer self-reviewed
+- **Never** force the same model to retry without changes — if it failed, escalate model or split the bean
+- **Never** dispatch coupled beans in parallel — if two ready beans edit the same files, serialize them
+
+## Holistic Review Procedure
+
+Runs when all beans are completed, before cleanup.
+
+```
+1. Collect full diff: git diff main...{integration-branch}
+2. Collect all bean acceptance criteria from the epic
+3. Spawn reviewer subagent with:
+   - The full diff
+   - All acceptance criteria
+   - Instruction: check for cross-bean inconsistencies, duplicated
+     utilities, contradictory patterns, missing integration between
+     components, dead code from incremental merges, naming drift
+4. If ISSUES → create fix beans, re-enter orchestration loop
+5. If APPROVED → proceed to cleanup
 ```
 
 ## What This Does NOT Change
