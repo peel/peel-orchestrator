@@ -23,7 +23,7 @@ Act IMMEDIATELY on each message. Do NOT wait for other teammates. Do NOT batch c
 
 **Implementer reports done:**
 - Follow "Handling Results → Implementer Result" in `skills/ralph/ralph-core.md`
-- On transition to review: `beans update {id} --remove-tag role:implement --tag role:review`
+- On transition to review: `beans update {id} --remove-tag role:implement --remove-tag spawned-at --tag role:review`
 
 **Review coordinator reports verdict:**
 - Follow "Handling Results → Review Verdict" in `skills/ralph/ralph-core.md`

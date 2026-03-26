@@ -105,7 +105,7 @@ Step 2: Execute based on choice → mode section
 - Variant identifier: keep `<!-- VARIANT:subs -->` blocks, strip `<!-- VARIANT:team -->`
 - No additional setup after core step 4
 - Event handling: background task notifications → identify bean from task name → read result via TaskOutput → check role tag → follow ralph-core "Handling Results"
-- Tag management on implementer → review transition: `--remove-tag role:implement --remove-tag bg-task:{old_task_id} --remove-tag ci-retries --remove-tag stall-respawns --tag role:review`
+- Tag management on implementer → review transition: `--remove-tag role:implement --remove-tag bg-task:{old_task_id} --remove-tag ci-retries --remove-tag stall-respawns --remove-tag spawned-at --tag role:review`
 - Review coordinator spawn: update `bg-task` tag to new task ID
 - User interrupt handling: "Assess and Act" immediately, check task status for in-progress beans with `bg-task:*` tag
 - `--caller <name>` flag: output machine-readable `RALPH_STATUS` on exit
@@ -287,7 +287,8 @@ skills/discover/SKILL.md
 skills/challenge/SKILL.md
 skills/discover-docs/SKILL.md  (reclassified only)
 skills/ralph/ralph-core.md     (except description update)
-skills/ralph/roles/*.md
+skills/ralph/roles/*.md     (progress reporting removed, decision protocol added to implementer,
+                                review-coordinator progress body-append removed)
 skills/ralph/checklists/*.md
 hooks/*                        (note: task-completed-verify.sh matches `develop-team-*` pattern —
                                 team name format is intentionally preserved in mode:team section)

@@ -11,7 +11,7 @@ Flags (all optional, order-independent):
 - `--max-impl-turns N` (default: 100) — max agent turns per implementer spawn
 - `--max-review-turns N` (default: 100) — max agent turns per review coordinator
 - `--ci-max-retries N` (default: 3) — CI failures before tagging `needs-attention`
-- `--stall-timeout-min N` (default: 15) — minutes of inactivity before respawn/escalation
+- `--stall-timeout-min N` (default: 15) — minutes since spawn before respawn/escalation
 - `--stall-max-respawns N` (default: 2) — stall respawns before tagging `needs-attention`
 
 **`BEANS_LIST` command:** When `--epic <id>` is set, every `beans list` invocation MUST include `--parent <id>`.
@@ -47,14 +47,14 @@ For each `in-progress` leaf bean, run `beans show {id} --json` and check:
    echo "$(date +%H:%M) impl-{id} failed ${N}x → needs attention" >> .claude/orchestrate-events.log
    ```
 
-2. **Stall detection:** Parse the last timestamp from `## Progress` entries (format: `- HH:MM ...`). If the last entry is older than `stall_timeout_min` minutes:
+2. **Stall detection:** Read the `spawned-at:EPOCH` tag from the bean. Compute elapsed minutes: `$(( ($(date +%s) - EPOCH) / 60 ))`. If elapsed > `stall_timeout_min`:
    - Check the `stall-respawns:N` tag:
      - If `N < stall_max_respawns` (or tag doesn't exist):
        ```bash
        beans update {id} --tag stall-respawns:$((N+1))
        echo "$(date +%H:%M) impl-{id} stalled → respawned ($((N+1))/${stall_max_respawns})" >> .claude/orchestrate-events.log
        ```
-       Next cycle will spawn a fresh implementer that reads `## Progress` and continues.
+       Next cycle spawns a fresh implementer that reads git history to continue.
      - If `N >= stall_max_respawns`:
        ```bash
        beans update {id} --tag needs-attention
@@ -138,6 +138,7 @@ The result starts with `VERDICT {bean-id} {TYPE}`. Parse the bean ID and verdict
 3. If worktree assigned: omit the `## Git Coordination` section (between `<!-- CONDITIONAL -->` markers)
 4. For fix cycles, append issues under `## Review Issues to Address`
 5. Spawn per your variant's agent config (see variant SKILL.md for `Agent(...)` parameters)
+6. Tag spawn time: `beans update {id} --tag spawned-at:$(date +%s)`
 
 ### Review Coordinator Spawn
 
@@ -147,6 +148,7 @@ The result starts with `VERDICT {bean-id} {TYPE}`. Parse the bean ID and verdict
 1. Read `skills/ralph/roles/review-coordinator.md`, replace placeholders (`{BEAN_ID}`, `{BEAN_TITLE}`, `{BEAN_BODY}`, `{WORKTREE_PATH}`, `{MAIN_BEANS_PATH}`, `{REVIEW_CYCLE}`, `{PREVIOUS_ISSUES}`, `{REVIEWER_LIST}`)
 2. Strip `<!-- VARIANT:... -->` sections that don't match your variant
 3. Spawn per your variant's agent config
+4. Tag spawn time: `beans update {id} --tag spawned-at:$(date +%s)`
 
 ## Rules
 

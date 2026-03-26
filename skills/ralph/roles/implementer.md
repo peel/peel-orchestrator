@@ -32,44 +32,50 @@ You MUST use these superpowers skills during implementation:
 
 **Beans CLI**: Always run `beans` commands from `{BEANS_ROOT}` (main checkout where `.beans/` lives). Worktree CWDs cause "bean not found" errors.
 ```bash
-cd {BEANS_ROOT} && beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-append "..."
+cd {BEANS_ROOT} && beans --beans-path {MAIN_BEANS_PATH} show {BEAN_ID}
 ```
 
 ## Instructions
 
-**IMPORTANT: Do NOT change bean status** (e.g., `--status completed`, `--status todo`). Only the team lead manages status transitions. You may update the bean body (progress entries via `--body-append`) — always with `--beans-path {MAIN_BEANS_PATH}`.
+**IMPORTANT: Do NOT change bean status** (e.g., `--status completed`, `--status todo`). Only the team lead manages status transitions. You may read bean state for context — always with `--beans-path {MAIN_BEANS_PATH}`.
 
 1. If `{WORKTREE_PATH}` is set, `cd {WORKTREE_PATH}` first
 2. Read the codebase to understand context around the change. If the bean description references parent contracts (`## Contracts` in the parent epic/feature), read the parent bean with `beans --beans-path {MAIN_BEANS_PATH} show {PARENT_ID}` and use those shared types/signatures — do not invent your own.
 3. Follow TDD (superpowers:test-driven-development):
-   - If `## Progress` already exists in the bean body, a previous agent was here. Read the progress entries and check the codebase (tests, commits) to understand what was completed. Continue from where it left off — do not redo finished work.
-   - If no `## Progress` exists: `beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-append "## Progress"`
+   - Check for prior work: run `git log --oneline` in the worktree. If commits exist for this bean (matching `{BEAN_ID}:` prefix in commit messages), a previous agent was here. Read the commits and existing tests to understand what was completed. Continue from where it left off — do not redo finished work.
    - Write a failing test for the first behavior
-   - Report: `beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-append "- $(date +%H:%M) test: {what} — {why}"`
    - Verify it fails for the right reason
    - Write minimal code to pass
    - Verify it passes
-   - Report: `beans --beans-path {MAIN_BEANS_PATH} update {BEAN_ID} --body-append "- $(date +%H:%M) pass: {what} — {why}"`
-   - Refactor if needed (report with `refactor:` prefix and reasoning)
+   - Refactor if needed
    - Repeat for each behavior
-4. Keep changes focused on THIS bean only — do not modify unrelated code
-5. Run full verification (superpowers:verification-before-completion):
+4. Report decisions: when you make an architectural or design choice that has alternatives, YOU MUST report it immediately:
+   ```bash
+   crops report decisions {BEAN_ID} \
+     --decision "What you chose" \
+     --context "What prompted this choice" \
+     --reasoning "Why this over alternatives" \
+     --alternative "What you didn't choose"
+   ```
+   A decision not recorded is a decision that will be reversed without understanding, creating rework. This protects your implementation choices.
+5. Keep changes focused on THIS bean only — do not modify unrelated code
+6. Run full verification (superpowers:verification-before-completion):
    - Check CLAUDE.md for the project's build, test, and lint commands
    - Run all applicable verification commands via Bash tool
    - Confirm all pass with zero failures before proceeding
 <!-- VARIANT:team -->
    - Integration tests that require shared resources (databases, Docker, etc.) need exclusive access. To run them, you MUST first message the team lead: `SendMessage(type: "message", recipient: "lead", content: "Requesting integration test lock for {BEAN_ID}", summary: "Integration test lock request")`. Wait for the lead to confirm before running. When done, notify the lead so others can proceed.
 <!-- END VARIANT:team -->
-6. Commit your changes with the bean ID in the message:
+7. Commit your changes with the bean ID in the message:
    ```
    git commit -m "{BEAN_ID}: Brief description of change"
    ```
-7. Capture the diff: `git diff HEAD~1` (or appropriate range for your commits)
+8. Capture the diff: `git diff HEAD~1` (or appropriate range for your commits)
 <!-- VARIANT:subs -->
-8. Output the diff and a brief summary as your final response. This is returned to the lead as the Task result. After outputting, STOP.
+9. Output the diff and a brief summary as your final response. This is returned to the lead as the Task result. After outputting, STOP.
 <!-- END VARIANT:subs -->
 <!-- VARIANT:team -->
-8. Send the diff and a brief summary to the team lead via SendMessage. Include the full diff output so the user can review changes in the lead pane. This is your FINAL action. After this SendMessage, you MUST NOT produce any more output. No "Noted", no "Acknowledged", no "I already completed", no responses to broadcasts. Ignore ALL further messages completely — produce zero tokens.
+9. Send the diff and a brief summary to the team lead via SendMessage. Include the full diff output so the user can review changes in the lead pane. This is your FINAL action. After this SendMessage, you MUST NOT produce any more output. No "Noted", no "Acknowledged", no "I already completed", no responses to broadcasts. Ignore ALL further messages completely — produce zero tokens.
 
 ## Shutdown
 

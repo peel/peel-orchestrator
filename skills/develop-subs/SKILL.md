@@ -30,7 +30,7 @@ You are notified when background tasks finish. The notification includes the tas
 
 **Additional tag management on implementer → review transition:**
 ```bash
-beans update {id} --remove-tag role:implement --remove-tag bg-task:{old_task_id} --remove-tag ci-retries --remove-tag stall-respawns --tag role:review
+beans update {id} --remove-tag role:implement --remove-tag bg-task:{old_task_id} --remove-tag ci-retries --remove-tag stall-respawns --remove-tag spawned-at --tag role:review
 ```
 
 **On review coordinator spawn:** Update bg-task tag:
