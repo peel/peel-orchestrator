@@ -30,20 +30,23 @@ The review coordinator is eliminated. Its logic (prompt construction, reviewer s
 ## Per-Bean Lifecycle
 
 ```
-1. Spawn implementer in worktree → TDD, verify, commit → done
+1. Spawn implementer in worktree → TDD, verify
+   (writes .verification-output.txt), commit → done
 2. Rebase worker onto integration HEAD
 3. If conflicts → resolve in worker worktree
-4. Post-rebase verification (build/test)
-5. If fails → fix in worker worktree, back to 2
+4. Post-rebase verification (build/test → overwrite .verification-output.txt)
+5. If fails → commit fix in worker worktree, back to 4 (re-verify).
+   If the fix changes the rebase base, back to 2.
 6. Review the rebased code → verdict
+   (reviewer reads .verification-output.txt as evidence)
 7. If ISSUES → spawn fix implementer, back to 2
 8. Fast-forward merge into integration
 9. Reset slot to integration HEAD
 ```
 
-Multiple beans run step 1 in parallel (up to `--workers`). Steps 2-8 are serial — one merge at a time.
+Multiple beans run step 1 in parallel (up to `--workers`). Steps 2-8 are serial — one merge at a time. The lead processes one completed implementer per turn (STOP after processing each result), same as the current assess-and-act pattern. If multiple implementers complete while the lead is processing steps 2-8 for one bean, their results queue and are processed in subsequent turns.
 
-**Single-worker fast path:** When `--workers 1`, skip worktree/integration setup. Implementer works in main checkout. Rebase and merge are no-ops.
+**Single-worker fast path:** When `--workers 1`, skip worktree/integration setup. Implementer works in main checkout on the current branch. Steps 2-3 (rebase) and step 8 (merge) are no-ops. Verification and review still run. Cleanup has no worktrees to remove.
 
 ## Conflict Resolution
 
@@ -84,12 +87,10 @@ Bean: board-tm7m
 Replaces the review coordinator. Procedure in `lead-procedures.md`, executed by the lead on demand.
 
 ```
-1. DETECT LANGUAGES
-   git diff --name-only HEAD~1
-   → Map extensions/paths to checklists:
-     *.go → go, *.ts/*.svelte → typescript, *.dart → dart,
-     *.sql/migrations/ → database
-   → Glob(pattern: "skills/ralph/checklists/*.md") to find available
+1. DETECT REVIEWERS
+   git diff {integration-branch}...HEAD --name-only
+   → Match file extensions against available checklists in
+     skills/ralph/checklists/
    → One reviewer per matched checklist
    → No matches → baseline only
 
@@ -97,11 +98,9 @@ Replaces the review coordinator. Procedure in `lead-procedures.md`, executed by 
    Read("skills/ralph/roles/reviewer.md")
    → Replace: {BEAN_ID}, {BEAN_TITLE}, {BEAN_BODY},
      {WORKTREE_PATH}, {REVIEW_CYCLE}, {PREVIOUS_ISSUES}
-   Read("skills/ralph/checklists/{lang}.md")
-   → Replace {LANGUAGE_CHECKLIST}
-   If domain expert (not baseline):
-     Read(".claude/agents/{agent-name}.md")
-     → Append under "## Domain Expertise"
+   → Inject matched language checklist into {LANGUAGE_CHECKLIST}
+   → If a domain expert agent matches the bean content, append
+     its definition under "## Domain Expertise"
 
 3. SPAWN ALL REVIEWERS (single message)
    Agent(
@@ -229,9 +228,11 @@ git clean -fd
 }
 ```
 
-Removed: `max_review_turns` (no coordinator), `max_total_turns` (no subagent ralph), `ci_max_retries` (handled by flow).
+Removed: `max_review_turns` (no coordinator), `max_total_turns` (no subagent lead), `ci_max_retries` (handled by flow). Existing configs with removed keys are silently ignored.
 
-The `ralph` key is renamed to `develop` for clarity.
+The `ralph` key is renamed to `develop` for clarity. `models.develop` is preserved as-is for implementer/reviewer model selection.
+
+The `branch`-tagged bean concept (skip worktree, work in main checkout serially) is dropped. All beans use worktrees when `--workers > 1`.
 
 ## Files Changed
 
@@ -250,8 +251,7 @@ skills/ralph/roles/implementer.md       → strip VARIANT blocks, update commit 
 skills/ralph/roles/reviewer.md          → strip VARIANT blocks, output as final response only
 skills/ralph/roles/lead-procedures.md   → add Review Pipeline + Conflict Resolution procedures,
                                           update Cleanup (no batch merge), remove Lead Verification
-hooks/clash-check.sh                    → unchanged (advisory)
-orchestrate.json                        → rename ralph → develop, drop ci_max_retries
+orchestrate.json                        → rename ralph → develop, drop ci_max_retries/max_review_turns/max_total_turns
 docs/technical/SYSTEM.md                → update component descriptions
 docs/technical/decisions/               → new ADR superseding 001 and 002
 ```
@@ -261,6 +261,7 @@ docs/technical/decisions/               → new ADR superseding 001 and 002
 skills/ralph/checklists/*.md
 skills/ralph/roles/provider-dispatch.md
 skills/ralph/roles/provider-context.md
+skills/ralph/roles/reviewer.md          (strip VARIANT blocks only)
 hooks/clash-check.sh
 hooks/crops-report-gate.sh
 ```
