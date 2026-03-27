@@ -9,7 +9,7 @@ The current develop phase has three structural problems:
 
 1. **Subagent nesting doesn't work.** The review coordinator is a subagent that spawns reviewer sub-subagents. In the subs variant, this creates two levels of nesting that empirically gets stuck.
 2. **Merge conflicts are deferred to Cleanup.** The lead merges all worktrees at the end, burning context on conflict resolution it has no accumulated knowledge about. Conflicts pile up undetected.
-3. **Two variants duplicate logic.** `develop-subs` and `develop-team` share ~90% of their code via `ralph-core.md` but maintain separate event handling, spawn config, and lifecycle management.
+3. **Two variants duplicate logic.** `develop-subs` and `develop-team` share ~90% of their code via a shared core file but maintain separate event handling, spawn config, and lifecycle management.
 
 ## Architecture
 
@@ -140,9 +140,9 @@ Skill("superpowers:subagent-driven-development")
 Delegates to superpowers, which handles:
 - Fresh subagent per bean (implementer)
 - Two-stage review (spec compliance, then code quality)
-- Parallel dispatch of independent beans via `dispatching-parallel-agents`
 - Fix cycles on review failure
-- Final code review after all tasks
+
+Note: `subagent-driven-development` executes beans sequentially (it explicitly prohibits parallel dispatch). Parallelism across epics comes from running multiple sessions in separate worktrees, not from intra-session parallelism.
 
 Beans-patched: uses `beans update` for state instead of TodoWrite. Already patched via `patch-superpowers`.
 
@@ -176,11 +176,11 @@ Already applied. `executing-plans` uses `beans` CLI for state tracking.
 **Patch 2 (new): Beans instead of TodoWrite for `subagent-driven-development`**
 `subagent-driven-development` still uses TodoWrite throughout (task creation, completion tracking, the process flow). Patch to use `beans update --status in-progress` / `--status completed` instead. Same pattern as the existing `executing-plans` beans patch.
 
-**Patch 3 (new): Remove finishing-a-development-branch from both skills**
-`executing-plans` explicitly invokes it in Step 3. `subagent-driven-development` references it in the Integration section and dot diagram. Patch both to return control to the caller instead. Develop owns this step.
+**Patch 3 (new): Remove finishing-a-development-branch and final code review from both skills**
+`executing-plans` explicitly invokes finishing in Step 3. `subagent-driven-development` references it in the Integration section and dot diagram, and dispatches a "final code reviewer subagent for entire implementation" after all tasks. Patch both to return control to the caller instead. Develop owns finishing (after holistic review) and holistic review replaces the superpowers final code review.
 
 **Patch 4 (new): Remove worktree setup from both skills**
-Both list `using-git-worktrees` as "REQUIRED" in their Integration sections. When invoked from develop, the worktree already exists (develop creates it in protocol step 2). Patch the requirement note to: "If already in a worktree (detect via `git rev-parse --show-toplevel`), skip setup."
+Both list `using-git-worktrees` as "REQUIRED" in their Integration sections. When invoked from develop, the worktree already exists (develop creates it in protocol step 2). Patch the requirement note to: "If already in a worktree (detect by comparing `git rev-parse --git-dir` with `git rev-parse --git-common-dir` — they differ in a worktree), skip setup."
 
 All patches are concrete search/replace operations specified in `patch-superpowers/SKILL.md` — the plan will define exact patch text.
 
@@ -514,9 +514,11 @@ Delegates to `superpowers:using-git-worktrees` for directory selection and safet
 
 Removed: `max_review_turns`, `max_total_turns`, `ci_max_retries`. Existing configs with removed keys are silently ignored.
 
-The `ralph` key is renamed to `develop`. `models.develop` is preserved for model selection.
+The legacy `ralph` config key is migrated to `develop`. If both keys exist, `develop` takes precedence. `models.develop` is preserved for model selection.
 
-The `branch`-tagged bean concept is dropped. All beans use worktrees when `--workers > 1`.
+**Orchestrate changes:** Remove `--max-total-turns` from the CLI flags table and the arg-building block in the DEVELOP section. Develop no longer accepts this flag — it runs inline and manages its own turn budget via the orchestration loop / superpowers delegation.
+
+The `branch`-tagged bean concept is dropped. All beans use worktrees when `--workers > 1`. The `writing-plans` patch in `patch-superpowers` must also be updated: remove the `--tag worktree` / `--tag branch` isolation tag instructions and the worktree-vs-branch decision table.
 
 ## Files Changed
 
@@ -524,7 +526,7 @@ The `branch`-tagged bean concept is dropped. All beans use worktrees when `--wor
 ```
 skills/develop-subs/                    → replaced by develop protocol + superpowers
 skills/develop-team/                    → replaced by develop protocol + superpowers
-skills/ralph/                           → renamed to develop-swarm, restructured
+skills/ralph/                           → replaced by develop-swarm, restructured
 ```
 
 ### Created
@@ -533,7 +535,7 @@ skills/develop-swarm/SKILL.md           → swarm orchestration loop + per-bean 
 skills/develop-swarm/roles/implementer.md
 skills/develop-swarm/roles/reviewer.md
 skills/develop-swarm/roles/lead-procedures.md
-skills/develop-swarm/checklists/*.md    → moved from ralph/checklists/
+skills/develop-swarm/checklists/*.md    → moved from skills/ralph/checklists/
 scripts/rebase-worker.sh
 scripts/merge-to-integration.sh
 scripts/detect-reviewers.sh
@@ -546,7 +548,7 @@ scripts/post-rebase-verify.sh
 skills/develop/SKILL.md                 → develop protocol + three execution choices
 skills/patch-superpowers/SKILL.md       → add patches 2-4 (beans for subagent-driven, remove finishing, skip worktree setup)
 skills/orchestrate/SKILL.md             → remove --max-total-turns flag, update develop invocation
-orchestrate.json                        → rename ralph → develop, drop removed keys
+orchestrate.json                        → migrate ralph key → develop, drop removed keys
 docs/technical/SYSTEM.md                → update component descriptions
 docs/technical/decisions/               → new ADR superseding 001 and 002
 ```
