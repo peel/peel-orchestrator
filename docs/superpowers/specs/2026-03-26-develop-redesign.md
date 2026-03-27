@@ -23,6 +23,40 @@ A separate swarm mode (`develop-swarm/SKILL.md`) provides parallel worktree-per-
 
 Shared across all execution modes. This is the contract between develop and orchestrate.
 
+```dot
+digraph develop_protocol {
+    rankdir=TB;
+
+    "Validate epic" [shape=box];
+    "Worktree setup\n(using-git-worktrees)" [shape=box];
+    "User picks mode" [shape=diamond];
+    "Execute\n(superpowers or swarm)" [shape=box];
+    "All beans completed?" [shape=diamond];
+    "Holistic review" [shape=box];
+    "APPROVED?" [shape=diamond];
+    "Create fix beans" [shape=box];
+    "Max cycles?" [shape=diamond];
+    "Tag needs-attention\npresent to user" [shape=box];
+    "finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Return to orchestrate" [shape=doublecircle];
+
+    "Validate epic" -> "Worktree setup\n(using-git-worktrees)";
+    "Worktree setup\n(using-git-worktrees)" -> "User picks mode";
+    "User picks mode" -> "Execute\n(superpowers or swarm)";
+    "Execute\n(superpowers or swarm)" -> "All beans completed?";
+    "All beans completed?" -> "Holistic review" [label="yes"];
+    "All beans completed?" -> "Tag needs-attention\npresent to user" [label="needs-attention"];
+    "Holistic review" -> "APPROVED?";
+    "APPROVED?" -> "finishing-a-development-branch" [label="yes"];
+    "APPROVED?" -> "Create fix beans" [label="issues"];
+    "Create fix beans" -> "Max cycles?";
+    "Max cycles?" -> "Execute\n(superpowers or swarm)" [label="no"];
+    "Max cycles?" -> "Tag needs-attention\npresent to user" [label="yes"];
+    "Tag needs-attention\npresent to user" -> "Execute\n(superpowers or swarm)" [label="user fixes"];
+    "finishing-a-development-branch" -> "Return to orchestrate";
+}
+```
+
 ```
 develop(epic-id):
   1. VALIDATE
@@ -69,6 +103,25 @@ develop(epic-id):
 **Holistic review max cycles:** `max_review_cycles` from config. If exceeded → tag epic `needs-attention`, present to user.
 
 ## Execution Choices
+
+```dot
+digraph execution_choice {
+    "Epic size?" [shape=diamond];
+    "Want interaction?" [shape=diamond];
+    "Beans independent?" [shape=diamond];
+
+    "Option A:\nWorktree + subagent-driven" [shape=box style=filled fillcolor=lightyellow];
+    "Option B:\nWorktree + sequential" [shape=box];
+    "Option C:\nSwarm" [shape=box];
+
+    "Epic size?" -> "Want interaction?" [label="small/medium"];
+    "Epic size?" -> "Beans independent?" [label="large (8+)"];
+    "Want interaction?" -> "Option B:\nWorktree + sequential" [label="yes"];
+    "Want interaction?" -> "Option A:\nWorktree + subagent-driven" [label="no"];
+    "Beans independent?" -> "Option C:\nSwarm" [label="yes, disjoint files"];
+    "Beans independent?" -> "Option A:\nWorktree + subagent-driven" [label="no, coupled"];
+}
+```
 
 ### Option A: Worktree + subagent-driven (recommended)
 
@@ -221,6 +274,44 @@ No teams. No coordinator. The review coordinator is eliminated — its logic mov
 
 ### Per-Bean Lifecycle
 
+```dot
+digraph per_bean {
+    rankdir=TB;
+
+    "Spawn implementer" [shape=box];
+    "Parse status" [shape=diamond];
+    "Rebase onto integration" [shape=box];
+    "Conflicts?" [shape=diamond];
+    "Resolve conflicts" [shape=box];
+    "Post-rebase verify" [shape=box];
+    "Verify pass?" [shape=diamond];
+    "Fix + commit" [shape=box];
+    "Review Pipeline" [shape=box];
+    "APPROVED?" [shape=diamond];
+    "Spawn fix implementer" [shape=box];
+    "FF merge to integration" [shape=box];
+    "Reset slot" [shape=box];
+
+    "Spawn implementer" -> "Parse status";
+    "Parse status" -> "Rebase onto integration" [label="DONE"];
+    "Parse status" -> "Spawn implementer" [label="NEEDS_CONTEXT\n(with context)"];
+    "Parse status" -> "Spawn implementer" [label="BLOCKED\n(escalate)"];
+    "Rebase onto integration" -> "Conflicts?";
+    "Conflicts?" -> "Post-rebase verify" [label="clean"];
+    "Conflicts?" -> "Resolve conflicts" [label="conflicts"];
+    "Resolve conflicts" -> "Post-rebase verify";
+    "Post-rebase verify" -> "Verify pass?";
+    "Verify pass?" -> "Review Pipeline" [label="pass"];
+    "Verify pass?" -> "Fix + commit" [label="fail"];
+    "Fix + commit" -> "Post-rebase verify";
+    "Review Pipeline" -> "APPROVED?";
+    "APPROVED?" -> "FF merge to integration" [label="yes"];
+    "APPROVED?" -> "Spawn fix implementer" [label="issues"];
+    "Spawn fix implementer" -> "Rebase onto integration";
+    "FF merge to integration" -> "Reset slot";
+}
+```
+
 ```
 1. Spawn implementer in worktree → TDD, verify
    (writes .verification-output.txt), commit → done
@@ -318,7 +409,34 @@ Replaces the review coordinator. Procedure executed by the lead on demand.
 
 ### Orchestration Loop
 
-Single loop, runs every turn.
+Single loop, runs every turn (assess-and-act pattern).
+
+```dot
+digraph orchestration {
+    rankdir=TB;
+
+    "SCAN\nbeans list" [shape=box];
+    "REACTION CHECKS\nstall, overflow" [shape=box];
+    "FEATURE EXPANSION" [shape=box];
+    "Ready beans?" [shape=diamond];
+    "DISPATCH\nspawn implementers" [shape=box];
+    "STOP" [shape=doublecircle];
+    "PROCESS RESULT\nparse status" [shape=box];
+    "All done?" [shape=diamond];
+    "Return to\ndevelop protocol" [shape=box style=filled fillcolor=lightgreen];
+
+    "SCAN\nbeans list" -> "REACTION CHECKS\nstall, overflow";
+    "REACTION CHECKS\nstall, overflow" -> "FEATURE EXPANSION";
+    "FEATURE EXPANSION" -> "Ready beans?";
+    "Ready beans?" -> "DISPATCH\nspawn implementers" [label="yes"];
+    "Ready beans?" -> "STOP" [label="active beans\nwaiting"];
+    "Ready beans?" -> "All done?" [label="none active\nnone ready"];
+    "DISPATCH\nspawn implementers" -> "STOP";
+    "STOP" -> "PROCESS RESULT\nparse status" [label="task completes"];
+    "PROCESS RESULT\nparse status" -> "SCAN\nbeans list";
+    "All done?" -> "Return to\ndevelop protocol" [label="all completed"];
+}
+```
 
 ```
 1. SCAN — beans list --parent {epic-id} --json
