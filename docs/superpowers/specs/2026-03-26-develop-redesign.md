@@ -107,7 +107,11 @@ develop(epic-id):
      → User picks: merge, PR, keep, discard
      → Worktree cleanup
 
-  8. RETURN to orchestrate → deliver phase
+  8. RETURN to orchestrate with terminal state:
+     - merge/PR → orchestrate proceeds to deliver
+     - keep → orchestrate proceeds to deliver (branch preserved)
+     - discard → orchestrate stops, epic tagged abandoned
+     - needs-attention (from step 4/5) → orchestrate waits for user
 ```
 
 **Restart resilience:** On session restart, develop re-derives state from beans and resumes. No session-scoped data to lose.
@@ -162,8 +166,8 @@ Already applied. `executing-plans` uses `beans` CLI for state tracking.
 **Patch 3 (new): Remove finishing-a-development-branch and final code review from both skills**
 `executing-plans` explicitly invokes finishing in Step 3. `subagent-driven-development` references it in the Integration section and dot diagram, and dispatches a "final code reviewer subagent for entire implementation" after all tasks. Patch both to return control to the caller instead. Develop owns finishing (after holistic review) and holistic review replaces the superpowers final code review.
 
-**Patch 4 (conditional): Skip worktree setup when already in one**
-Both skills list `using-git-worktrees` as "REQUIRED." Since develop creates the worktree first, the skills may attempt redundant setup. Test whether `using-git-worktrees` is idempotent (it checks for existing worktrees in step 1). If it is, skip this patch. If not, patch both to detect existing worktree context and skip.
+**Patch 4: Not needed.**
+`using-git-worktrees` is idempotent — its step 1 checks for existing worktree directories and reuses them. When develop creates the worktree first and superpowers invokes `using-git-worktrees`, it finds the existing directory and skips creation. No patch required.
 
 All patches are concrete search/replace operations specified in `patch-superpowers/SKILL.md` — the plan will define exact patch text.
 
@@ -450,6 +454,7 @@ Delegates to `superpowers:using-git-worktrees` for directory selection and safet
 ```json
 {
   "develop": {
+    "execution": "subagent",
     "workers": 2,
     "max_review_cycles": 3,
     "max_impl_turns": 50,
@@ -459,9 +464,16 @@ Delegates to `superpowers:using-git-worktrees` for directory selection and safet
 }
 ```
 
-Removed keys: `max_review_turns`, `max_total_turns`, `ci_max_retries` (silently ignored). Legacy `ralph` key migrated to `develop` (precedence: `develop` wins). `models.develop` preserved. `branch`-tagged bean concept dropped.
+Removed keys: `max_review_turns`, `max_total_turns`, `ci_max_retries` (silently ignored). `models.develop` preserved. `branch`-tagged bean concept dropped.
 
-**Required orchestrate changes:** `orchestrate/SKILL.md` must stop passing `--max-total-turns` to develop and read from the `develop {}` config block instead of `ralph {}`. The `writing-plans` patch in `patch-superpowers` must remove `--tag worktree` / `--tag branch` isolation instructions. Exact patches specified in the implementation plan.
+**Config migration:** `develop/SKILL.md` reads `develop {}` first; if absent or empty, falls back to `ralph {}`. Orchestrate does not migrate — it passes through whatever config develop resolves.
+
+**Required orchestrate changes:**
+- Remove `--max-total-turns` from CLI flags table and arg-building block (stall detection replaces it)
+- Read from `develop {}` config block; fall back to `ralph {}` if absent
+- Pass `--execution` flag to develop if `develop.execution` is set in config
+- Update execution choice labels (replace "Ralph Subs"/"Tmux Team" with "Subagent"/"Sequential"/"Swarm")
+- The `writing-plans` patch in `patch-superpowers` must remove `--tag worktree` / `--tag branch` isolation instructions
 
 ## What This Does NOT Change
 
