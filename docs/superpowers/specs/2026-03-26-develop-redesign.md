@@ -263,8 +263,7 @@ Single loop, runs every turn. No variant-specific sections.
    For each ready bean (up to slots):
      beans update {id} --status in-progress
      Assign worktree slot: --tag worktree-slot:{prefix}-{N}
-     Reset slot: cd .worktrees/{prefix}-{N} && git reset --hard
-       epic/{epic-id} && git clean -fd
+     Bash("scripts/reset-slot.sh {worktree-dir}/{prefix}-{N} {integration-branch}")
      Read("skills/develop-swarm/roles/implementer.md") → substitute placeholders
      Curate context: read parent bean (contracts), read key files
        referenced in the bean body → inject under {CODEBASE_CONTEXT}
@@ -331,23 +330,25 @@ Terminal states: `completed` (status), `needs-attention` (tag → user intervent
 
 ## Worktree Management
 
+Delegates to `superpowers:using-git-worktrees` for directory selection, safety verification (.gitignore check), project setup (dependency install), and baseline test verification. The swarm extends it with multi-slot setup and slot reuse.
+
 **Setup** (first turn):
-- Integration worktree: `git worktree add .worktrees/{epic-id}-integration -b epic/{epic-id} HEAD`
-- Worker slots: `git worktree add .worktrees/{prefix}-{N} -b {prefix}-{N}/scratch epic/{epic-id}`
-- `direnv allow` each worktree
+1. Use `superpowers:using-git-worktrees` to determine worktree directory and verify safety
+2. Integration worktree: `git worktree add {worktree-dir}/{epic-id}-integration -b epic/{epic-id} HEAD`
+3. Worker slots: for each slot 1..N, `git worktree add {worktree-dir}/{prefix}-{N} -b {prefix}-{N}/scratch epic/{epic-id}`
+4. Run project setup + baseline tests in each worktree per `using-git-worktrees`
 
 **Between beans on the same slot:**
 ```bash
-cd .worktrees/{prefix}-{N}
-git reset --hard epic/{epic-id}
-git clean -fd
+Bash("scripts/reset-slot.sh {worktree} {integration-branch}")
 ```
+Then re-run project setup if dependencies changed on integration.
 
 **Cleanup** (all beans completed):
-1. Remove worker worktrees: `git worktree remove .worktrees/{prefix}-{N}`
+1. Remove worker worktrees: `git worktree remove {worktree-dir}/{prefix}-{N}`
 2. Delete scratch branches: `git branch -d {prefix}-{N}/scratch`
 3. Report integration branch name to user
-4. Ask: checkout in main? rebase onto main? leave as-is?
+4. Use `superpowers:finishing-a-development-branch` for merge/PR/cleanup decision
 
 ## Configuration
 
