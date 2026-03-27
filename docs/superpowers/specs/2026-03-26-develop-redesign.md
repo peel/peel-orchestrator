@@ -309,7 +309,7 @@ digraph per_bean {
     "Reset slot" [shape=box];
 
     "Spawn implementer" -> "Parse status";
-    "Parse status" -> "Rebase onto integration" [label="DONE"];
+    "Parse status" -> "Rebase onto integration" [label="DONE /\nDONE_WITH_CONCERNS"];
     "Parse status" -> "Spawn implementer" [label="NEEDS_CONTEXT\n(with context)"];
     "Parse status" -> "Spawn implementer" [label="BLOCKED\n(escalate)"];
     "Rebase onto integration" -> "Conflicts?";
@@ -344,7 +344,7 @@ digraph per_bean {
 9. Bash("scripts/reset-slot.sh {worktree} {integration-branch}")
 ```
 
-Multiple beans run step 1 in parallel (up to `--workers`). Steps 2-8 are serial — one merge at a time. The lead processes one completed implementer per turn (STOP after each result). Queued results are processed in subsequent turns.
+Multiple beans run step 1 in parallel (up to `--workers`). Steps 2-9 are serial — one merge at a time. The lead processes one completed implementer per turn (STOP after each result). Queued results are processed in subsequent turns.
 
 ### Implementer Template Enrichments
 
@@ -516,7 +516,7 @@ Removed: `max_review_turns`, `max_total_turns`, `ci_max_retries`. Existing confi
 
 The legacy `ralph` config key is migrated to `develop`. If both keys exist, `develop` takes precedence. `models.develop` is preserved for model selection.
 
-**Orchestrate changes:** Remove `--max-total-turns` from the CLI flags table and the arg-building block in the DEVELOP section. Develop no longer accepts this flag — it runs inline and manages its own turn budget via the orchestration loop / superpowers delegation.
+**Orchestrate changes:** Remove `--max-total-turns` from the CLI flags table, the arg-building block in the DEVELOP section, and the config key parsing list (which reads `max_total_turns` from the legacy config block). Develop no longer accepts this flag — it runs inline and manages its own turn budget via the orchestration loop / superpowers delegation.
 
 The `branch`-tagged bean concept is dropped. All beans use worktrees when `--workers > 1`. The `writing-plans` patch in `patch-superpowers` must also be updated: remove the `--tag worktree` / `--tag branch` isolation tag instructions and the worktree-vs-branch decision table.
 
@@ -546,7 +546,7 @@ scripts/post-rebase-verify.sh
 ### Modified
 ```
 skills/develop/SKILL.md                 → develop protocol + three execution choices
-skills/patch-superpowers/SKILL.md       → add patches 2-4 (beans for subagent-driven, remove finishing, skip worktree setup)
+skills/patch-superpowers/SKILL.md       → add patches 2-4 (beans for subagent-driven, remove finishing + final review, skip worktree setup), remove stale --tag worktree/branch isolation table from writing-plans patch
 skills/orchestrate/SKILL.md             → remove --max-total-turns flag, update develop invocation
 orchestrate.json                        → migrate ralph key → develop, drop removed keys
 docs/technical/SYSTEM.md                → update component descriptions
