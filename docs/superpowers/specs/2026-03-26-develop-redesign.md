@@ -106,30 +106,9 @@ develop(epic-id):
   8. RETURN to orchestrate → deliver phase
 ```
 
-**Restart resilience:** On session restart, develop reads epic bean state (`beans list --parent {epic-id}`) and resumes at the appropriate step. Beans track all operational state — no session-scoped data to lose.
-
-**Holistic review max cycles:** `max_review_cycles` from config. If exceeded → tag epic `needs-attention`, present to user.
+**Restart resilience:** On session restart, develop re-derives state from beans and resumes. No session-scoped data to lose.
 
 ## Execution Choices
-
-```dot
-digraph execution_choice {
-    "Epic size?" [shape=diamond];
-    "Want interaction?" [shape=diamond];
-    "Beans independent?" [shape=diamond];
-
-    "Option A:\nWorktree + subagent-driven" [shape=box style=filled fillcolor=lightyellow];
-    "Option B:\nWorktree + sequential" [shape=box];
-    "Option C:\nSwarm" [shape=box];
-
-    "Epic size?" -> "Want interaction?" [label="small/medium"];
-    "Epic size?" -> "Beans independent?" [label="large (8+)"];
-    "Want interaction?" -> "Option B:\nWorktree + sequential" [label="yes"];
-    "Want interaction?" -> "Option A:\nWorktree + subagent-driven" [label="no"];
-    "Beans independent?" -> "Option C:\nSwarm" [label="yes, disjoint files"];
-    "Beans independent?" -> "Option A:\nWorktree + subagent-driven" [label="no, coupled"];
-}
-```
 
 ### Option A: Worktree + subagent-driven (recommended)
 
@@ -179,8 +158,8 @@ Already applied. `executing-plans` uses `beans` CLI for state tracking.
 **Patch 3 (new): Remove finishing-a-development-branch and final code review from both skills**
 `executing-plans` explicitly invokes finishing in Step 3. `subagent-driven-development` references it in the Integration section and dot diagram, and dispatches a "final code reviewer subagent for entire implementation" after all tasks. Patch both to return control to the caller instead. Develop owns finishing (after holistic review) and holistic review replaces the superpowers final code review.
 
-**Patch 4 (new): Remove worktree setup from both skills**
-Both list `using-git-worktrees` as "REQUIRED" in their Integration sections. When invoked from develop, the worktree already exists (develop creates it in protocol step 2). Patch the requirement note to: "If already in a worktree (detect by comparing `git rev-parse --git-dir` with `git rev-parse --git-common-dir` — they differ in a worktree), skip setup."
+**Patch 4 (conditional): Skip worktree setup when already in one**
+Both skills list `using-git-worktrees` as "REQUIRED." Since develop creates the worktree first, the skills may attempt redundant setup. Test whether `using-git-worktrees` is idempotent (it checks for existing worktrees in step 1). If it is, skip this patch. If not, patch both to detect existing worktree context and skip.
 
 All patches are concrete search/replace operations specified in `patch-superpowers/SKILL.md` — the plan will define exact patch text.
 
@@ -200,23 +179,7 @@ For swarm mode (C): stall detection is part of the orchestration loop.
 
 ## Commit Message Format
 
-Conventional commits title + Previously/Now body + Bean trailer. Applies to all modes.
-
-```
-feat: add cancellation support to Store.Append
-
-Previously Append took only beanID and event params, with no way to
-cancel long-running writes from the fsnotify watcher.
-
-Now Append takes context.Context as first param, allowing callers to
-cancel via context. All Store consumers must update their call sites.
-
-Bean: board-tm7m
-```
-
-- **Title:** Conventional commit prefix, imperative, max 70 chars
-- **Body:** Previously/Now describing behavioral state change. When the clash hook fired for any file in this commit, the body MUST explain the interface change and impact on consumers.
-- **Trailer:** `Bean: {BEAN_ID}`
+Conventional commits title + Previously/Now body + `Bean: {BEAN_ID}` trailer. Details specified in the implementer role templates.
 
 ## Implementer Status Protocol
 
@@ -237,26 +200,6 @@ BLOCKED
 <why — specific blocker>
   Escalation: provide context → split bean → tag needs-attention
 ```
-
-## Holistic Review Procedure
-
-Runs inside the develop protocol (step 5) when all beans are completed.
-
-```
-1. Collect full diff: git diff main...HEAD (in worktree)
-2. Collect all bean acceptance criteria from the epic
-3. Spawn reviewer subagent with:
-   - The full diff
-   - All acceptance criteria
-   - Instruction: check for cross-bean inconsistencies, duplicated
-     utilities, contradictory patterns, missing integration between
-     components, dead code, naming drift
-4. If ISSUES → create fix beans under epic → return to step 4
-   of develop protocol (re-execute)
-5. If APPROVED → proceed to finishing
-```
-
-Max cycles: `max_review_cycles`. Exceeded → tag `needs-attention`, present to user.
 
 ## Red Flags
 
@@ -512,52 +455,9 @@ Delegates to `superpowers:using-git-worktrees` for directory selection and safet
 }
 ```
 
-Removed: `max_review_turns`, `max_total_turns`, `ci_max_retries`. Existing configs with removed keys are silently ignored.
+Removed keys: `max_review_turns`, `max_total_turns`, `ci_max_retries` (silently ignored). Legacy `ralph` key migrated to `develop` (precedence: `develop` wins). `models.develop` preserved. `branch`-tagged bean concept dropped.
 
-The legacy `ralph` config key is migrated to `develop`. If both keys exist, `develop` takes precedence. `models.develop` is preserved for model selection.
-
-**Orchestrate changes:** Remove `--max-total-turns` from the CLI flags table, the arg-building block in the DEVELOP section, and the config key parsing list (which reads `max_total_turns` from the legacy config block). Develop no longer accepts this flag — it runs inline and manages its own turn budget via the orchestration loop / superpowers delegation.
-
-The `branch`-tagged bean concept is dropped. All beans use worktrees when `--workers > 1`. The `writing-plans` patch in `patch-superpowers` must also be updated: remove the `--tag worktree` / `--tag branch` isolation tag instructions and the worktree-vs-branch decision table.
-
-## Files Changed
-
-### Deleted
-```
-skills/develop-subs/                    → replaced by develop protocol + superpowers
-skills/develop-team/                    → replaced by develop protocol + superpowers
-skills/ralph/                           → replaced by develop-swarm, restructured
-```
-
-### Created
-```
-skills/develop-swarm/SKILL.md           → swarm orchestration loop + per-bean lifecycle
-skills/develop-swarm/roles/implementer.md
-skills/develop-swarm/roles/reviewer.md
-skills/develop-swarm/roles/lead-procedures.md
-skills/develop-swarm/checklists/*.md    → moved from skills/ralph/checklists/
-scripts/rebase-worker.sh
-scripts/merge-to-integration.sh
-scripts/detect-reviewers.sh
-scripts/reset-slot.sh
-scripts/post-rebase-verify.sh
-```
-
-### Modified
-```
-skills/develop/SKILL.md                 → develop protocol + three execution choices
-skills/patch-superpowers/SKILL.md       → add patches 2-4 (beans for subagent-driven, remove finishing + final review, skip worktree setup), remove stale --tag worktree/branch isolation table from writing-plans patch
-skills/orchestrate/SKILL.md             → remove --max-total-turns flag, update develop invocation
-orchestrate.json                        → migrate ralph key → develop, drop removed keys
-docs/technical/SYSTEM.md                → update component descriptions
-docs/technical/decisions/               → new ADR superseding 001 and 002
-```
-
-### Unchanged
-```
-hooks/clash-check.sh
-hooks/crops-report-gate.sh
-```
+Migration details (orchestrate flag removal, writing-plans patch cleanup, config key rename) specified in the implementation plan.
 
 ## What This Does NOT Change
 
