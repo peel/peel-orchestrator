@@ -77,7 +77,15 @@ develop(epic-id):
   4. EXECUTE
      Delegate to chosen superpowers skill or develop-swarm.
      Superpowers skills are patched: finishing-a-development-branch
-     is removed. They run beans to completion and return control.
+     is removed, worktree setup is skipped (already done).
+     They run beans to completion and return control.
+
+     If execution returns with needs-attention beans:
+       Present to user, wait for guidance.
+       When user fixes → back to step 4.
+
+     If execution returns with incomplete beans (context exhaustion):
+       Re-invoke the same skill — it picks up from bean state.
 
   5. HOLISTIC REVIEW
      All beans completed → spawn reviewer subagent with:
@@ -162,11 +170,19 @@ Full parallel execution with worktree-per-bean and incremental merge. For large 
 
 Applied via `patch-superpowers` alongside existing beans patches.
 
-**Patch 1 (existing): Beans instead of TodoWrite**
-Both `subagent-driven-development` and `executing-plans` use `beans` CLI for state tracking instead of TodoWrite. Already applied.
+**Patch 1 (existing): Beans instead of TodoWrite for `executing-plans`**
+Already applied. `executing-plans` uses `beans` CLI for state tracking.
 
-**Patch 2 (new): Remove finishing-a-development-branch**
-Both skills invoke `finishing-a-development-branch` at the end. Patch out the invocation — develop owns this step and runs it after holistic review passes.
+**Patch 2 (new): Beans instead of TodoWrite for `subagent-driven-development`**
+`subagent-driven-development` still uses TodoWrite throughout (task creation, completion tracking, the process flow). Patch to use `beans update --status in-progress` / `--status completed` instead. Same pattern as the existing `executing-plans` beans patch.
+
+**Patch 3 (new): Remove finishing-a-development-branch from both skills**
+`executing-plans` explicitly invokes it in Step 3. `subagent-driven-development` references it in the Integration section and dot diagram. Patch both to return control to the caller instead. Develop owns this step.
+
+**Patch 4 (new): Remove worktree setup from both skills**
+Both list `using-git-worktrees` as "REQUIRED" in their Integration sections. When invoked from develop, the worktree already exists (develop creates it in protocol step 2). Patch the requirement note to: "If already in a worktree (detect via `git rev-parse --show-toplevel`), skip setup."
+
+All patches are concrete search/replace operations specified in `patch-superpowers/SKILL.md` — the plan will define exact patch text.
 
 ## Stall Detection
 
@@ -356,7 +372,7 @@ The clash hook (`clash-check.sh`) warns implementers about shared-file edits. Th
 
 ### Helper Scripts
 
-Deterministic shell scripts for git operations.
+Deterministic shell scripts for git operations. Full contracts (argument parsing, error handling, edge cases) specified in the implementation plan.
 
 ```
 scripts/rebase-worker.sh {worktree} {integration-branch}
@@ -527,8 +543,9 @@ scripts/post-rebase-verify.sh
 
 ### Modified
 ```
-skills/develop/SKILL.md                 → develop protocol + four execution choices
-skills/patch-superpowers/SKILL.md       → add finishing-a-development-branch removal patch
+skills/develop/SKILL.md                 → develop protocol + three execution choices
+skills/patch-superpowers/SKILL.md       → add patches 2-4 (beans for subagent-driven, remove finishing, skip worktree setup)
+skills/orchestrate/SKILL.md             → remove --max-total-turns flag, update develop invocation
 orchestrate.json                        → rename ralph → develop, drop removed keys
 docs/technical/SYSTEM.md                → update component descriptions
 docs/technical/decisions/               → new ADR superseding 001 and 002
