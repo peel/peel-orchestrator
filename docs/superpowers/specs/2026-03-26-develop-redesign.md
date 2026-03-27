@@ -69,10 +69,11 @@ develop(epic-id):
      → Safety checks, dependency install, baseline tests
 
   3. EXECUTION CHOICE
-     User picks mode (or pre-configured via --execution flag):
-       a. Worktree + subagent-driven (recommended)
-       b. Worktree + sequential (interactive)
-       c. Swarm (parallel, large epics)
+     User picks mode (or pre-configured via `--execution` flag
+     or `develop.execution` in orchestrate.json):
+       a. Worktree + subagent-driven (recommended, `--execution subagent`)
+       b. Worktree + sequential (interactive, `--execution sequential`)
+       c. Swarm (parallel, `--execution swarm`)
 
   4. EXECUTE
      Delegate to chosen superpowers skill or develop-swarm.
@@ -88,12 +89,15 @@ develop(epic-id):
        Re-invoke the same skill — it picks up from bean state.
 
   5. HOLISTIC REVIEW
-     All beans completed → spawn reviewer subagent with:
+     All beans completed → if external providers configured
+     (develop_holistic in orchestrate.json), dispatch via provider.
+     Otherwise spawn reviewer subagent. Either way, provide:
        - Full diff: git diff main...HEAD (in worktree)
        - All bean acceptance criteria from the epic
        - Instruction: check cross-bean consistency, duplicated
          utilities, naming drift, dead code, missing integration
      Verdict: APPROVED / ISSUES
+     Max cycles: max_review_cycles. Exceeded → needs-attention.
 
   6. If ISSUES → create fix beans under epic → back to step 4
      If APPROVED → continue
@@ -143,7 +147,7 @@ Same patches: beans instead of TodoWrite, finishing removed.
 Read("skills/develop-swarm/SKILL.md") → follow inline
 ```
 
-Full parallel execution with worktree-per-bean and incremental merge. For large epics with genuinely independent beans where intra-epic parallelism matters. See "Swarm Mode" section below.
+Full parallel execution with worktree-per-bean and incremental merge. For large epics with genuinely independent beans where intra-epic parallelism matters. `develop-swarm/` and its role templates are created as part of this redesign. See "Swarm Mode" section below.
 
 ## Superpowers Patches
 
@@ -315,7 +319,7 @@ The clash hook (`clash-check.sh`) warns implementers about shared-file edits. Th
 
 ### Helper Scripts
 
-Deterministic shell scripts for git operations. Full contracts (argument parsing, error handling, edge cases) specified in the implementation plan.
+Deterministic shell scripts for git operations, created at `scripts/` in the project root (alongside `hooks/`). Full contracts specified in the implementation plan.
 
 ```
 scripts/rebase-worker.sh {worktree} {integration-branch}
@@ -457,7 +461,7 @@ Delegates to `superpowers:using-git-worktrees` for directory selection and safet
 
 Removed keys: `max_review_turns`, `max_total_turns`, `ci_max_retries` (silently ignored). Legacy `ralph` key migrated to `develop` (precedence: `develop` wins). `models.develop` preserved. `branch`-tagged bean concept dropped.
 
-Migration details (orchestrate flag removal, writing-plans patch cleanup, config key rename) specified in the implementation plan.
+**Required orchestrate changes:** `orchestrate/SKILL.md` must stop passing `--max-total-turns` to develop and read from the `develop {}` config block instead of `ralph {}`. The `writing-plans` patch in `patch-superpowers` must remove `--tag worktree` / `--tag branch` isolation instructions. Exact patches specified in the implementation plan.
 
 ## What This Does NOT Change
 
