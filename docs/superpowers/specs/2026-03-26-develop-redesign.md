@@ -29,11 +29,12 @@ The review coordinator is eliminated. Its logic (prompt construction, reviewer s
 
 ### Execution Choices
 
-`develop/SKILL.md` presents three options:
+`develop/SKILL.md` presents four options. Default recommendation is option 2.
 
-1. **Swarm** — `develop-swarm/SKILL.md`. Parallel subagent implementers/reviewers in worktrees with incremental merge. For large epics with independent beans.
-2. **Subagent-driven** — `superpowers:subagent-driven-development`. Same session, fresh subagent per task, two-stage review. For moderate work with independent tasks.
-3. **Sequential** — `superpowers:executing-plans`. Same session, lead executes each task directly. For small changes where the user wants to interact.
+1. **Swarm** — `develop-swarm/SKILL.md`. Parallel subagent implementers/reviewers with worktree-per-bean and incremental merge. For large epics with genuinely independent beans where intra-epic parallelism matters.
+2. **Worktree + subagent-driven** (recommended) — `superpowers:using-git-worktrees` to create an isolated worktree, then `superpowers:subagent-driven-development` to execute beans sequentially within it. Parallelism comes from running multiple sessions across worktrees (one per epic). Simpler than swarm, avoids merge choreography.
+3. **Subagent-driven** — `superpowers:subagent-driven-development`. Same session, no worktree isolation. For moderate single-epic work where isolation isn't needed.
+4. **Sequential** — `superpowers:executing-plans`. Same session, lead executes each task directly. For small changes where the user wants to interact.
 
 ## Per-Bean Lifecycle
 
