@@ -1,27 +1,27 @@
 ---
 name: fiddle:patch-superpowers
-description: Use after updating the superpowers plugin to re-apply beans integration patches to writing-plans and executing-plans skills.
+description: Use after updating the superpowers plugin to re-apply beans integration patches to brainstorming, writing-plans, executing-plans, and subagent-driven-development skills.
 ---
 
 # Patch Superpowers for Beans Integration
 
 ## Overview
 
-After updating the superpowers plugin, run this skill to re-apply beans integration. Patches three cached skills in-place: `brainstorming`, `writing-plans`, and `executing-plans`.
+After updating the superpowers plugin, run this skill to re-apply beans integration. Patches four cached skills in-place: `brainstorming`, `writing-plans`, `executing-plans`, and `subagent-driven-development`. Also removes `finishing-a-development-branch` from execution skills and simplifies isolation tags.
 
 **Announce:** "Patching superpowers for beans integration."
 
 ## Step 1: Find the Superpowers Cache
 
 ```bash
-find "$CLAUDE_CONFIG_DIR/plugins/cache/superpowers-marketplace" -name "SKILL.md" | grep -E "(brainstorming|writing-plans|executing-plans)/" | sort
+find "$CLAUDE_CONFIG_DIR/plugins/cache/superpowers-marketplace" -name "SKILL.md" | grep -E "(brainstorming|writing-plans|executing-plans|subagent-driven-development)/" | sort
 ```
 
 All skills should be siblings under the same version directory.
 
 ## Step 2: Check Patch State
 
-Read all three files. Check for the marker `[BEANS-PATCHED]` at the end of each. If all are already patched, report "Already patched" and stop. Patch only the files that are missing the marker.
+Read all four files. Check for the marker `[BEANS-PATCHED]` at the end of each. If all are already patched, report "Already patched" and stop. Patch only the files that are missing the marker.
 
 ## Step 3: Patch Brainstorming
 
@@ -208,9 +208,8 @@ Bean descriptions MUST be self-contained — include the complete step-by-step i
 beans create "Epic: <feature name>" --json -t epic -s todo -d "Implementation of <feature>. Plan: <plan-path>"
 
 # Create a bean per task — inline the FULL task content from the plan
-# Use --tag worktree or --tag branch per isolation rules below
 # <plan-path> is the actual path the plan was saved to above
-beans create "Task N: <title>" --json -t task -s todo -p <priority> --parent <epic-id> --tag <isolation> -d "Plan: <plan-path> Task N
+beans create "Task N: <title>" --json -t task -s todo -p <priority> --parent <epic-id> -d "Plan: <plan-path> Task N
 
 Files:
 - <file list from plan>
@@ -229,14 +228,7 @@ beans update <task-2-id> --blocked-by <task-1-id>
 
 **Priority:** critical > high > normal > low (based on how many others a task blocks).
 
-**Isolation tags:** Each bean gets `--tag worktree` (default) or `--tag branch`. This controls how `develop-team` runs it:
-
-| Tag | Behavior | Use when |
-|-----|----------|----------|
-| `worktree` | Isolated `.worktrees/worker-{N}` dir. Fully parallel, no git locks needed. **Use by default.** | Almost always. Independent work with no coordination overhead. |
-| `branch` | Main checkout, serialized (only ONE at a time), requires team lead git lock coordination. | Only for trivial single-file changes (updating a version, toggling a flag) where worktree setup cost isn't justified. |
-
-**Default to `worktree` for every bean.** The parallelism gain far outweighs the worktree setup cost. Only use `branch` when a bean is so trivial that isolation adds no value.
+All beans use worktrees by default when `--workers > 1`. No isolation tags needed.
 
 **Verify (HARD GATE — do NOT proceed until all checks pass):**
 \```bash
@@ -364,12 +356,195 @@ For each actionable bean (`in-progress`, or `todo` with no unresolved `blocked-b
 
 Append marker: `<!-- [BEANS-PATCHED] -->`
 
-## Step 6: Verify
+## Step 6: Patch Subagent-Driven-Development for Beans
 
-Read all three patched files and confirm:
+**Purpose:** Replace TodoWrite usage with beans CLI for state tracking.
+
+**6a.** In the Process Flow graph, replace the initial node. Replace:
+
+```
+    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
+```
+
+With:
+
+```
+    "Read plan, extract all tasks with full text, note context, load beans via beans list --json" [shape=box];
+```
+
+And replace the edge from this node:
+
+```
+    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+```
+
+With:
+
+```
+    "Read plan, extract all tasks with full text, note context, load beans via beans list --json" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+```
+
+**6b.** In the Process Flow graph, replace the TodoWrite completion node. Replace:
+
+```
+        "Mark task complete in TodoWrite" [shape=box];
+```
+
+With:
+
+```
+        "beans update {id} --status completed" [shape=box];
+```
+
+And replace both edges referencing this node. Replace:
+
+```
+    "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
+    "Mark task complete in TodoWrite" -> "More tasks remain?";
+```
+
+With:
+
+```
+    "Code quality reviewer subagent approves?" -> "beans update {id} --status completed" [label="yes"];
+    "beans update {id} --status completed" -> "More tasks remain?";
+```
+
+**6c.** In the Example Workflow section, replace:
+
+```
+[Create TodoWrite with all tasks]
+```
+
+With:
+
+```
+[Load beans via beans list --json]
+```
+
+And replace:
+
+```
+[Mark Task 1 complete]
+```
+
+With:
+
+```
+[beans update {id} --status completed]
+```
+
+And replace:
+
+```
+[Mark Task 2 complete]
+```
+
+With:
+
+```
+[beans update {id} --status completed]
+```
+
+Append marker: `<!-- [BEANS-PATCHED] -->`
+
+## Step 7: Remove finishing-a-development-branch
+
+**Purpose:** Remove `finishing-a-development-branch` references from both `subagent-driven-development` and `executing-plans`. Execution skills should return control to the caller instead.
+
+### 7a. Patch subagent-driven-development
+
+In the Process Flow graph, remove the final reviewer and finishing nodes. Replace:
+
+```
+    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
+    "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+```
+
+With:
+
+```
+    "Return control to the caller" [shape=doublecircle];
+```
+
+Replace the edges from "More tasks remain?" onward. Replace:
+
+```
+    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
+    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+```
+
+With:
+
+```
+    "More tasks remain?" -> "Return control to the caller" [label="no"];
+```
+
+In the Example Workflow section, replace:
+
+```
+[After all tasks]
+[Dispatch final code-reviewer]
+Final reviewer: All requirements met, ready to merge
+
+Done!
+```
+
+With:
+
+```
+[After all tasks — return control to the caller]
+```
+
+In the Integration section, remove `finishing-a-development-branch` from Required workflow skills. Replace:
+
+```
+- **superpowers:finishing-a-development-branch** - Complete development after all tasks
+```
+
+With nothing (delete the line).
+
+### 7b. Patch executing-plans
+
+In Step 3, replace the entire section. Replace:
+
+```
+### Step 3: Complete Development
+
+After all tasks complete and verified:
+- Announce: "I'm using the finishing-a-development-branch skill to complete this work."
+- **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
+- Follow that skill to verify tests, present options, execute choice
+```
+
+With:
+
+```
+### Step 3: Complete Development
+
+After all tasks complete and verified:
+- Return control to the caller. Do not invoke finishing-a-development-branch.
+```
+
+In the Integration section, remove `finishing-a-development-branch` from Required workflow skills. Replace:
+
+```
+- **superpowers:finishing-a-development-branch** - Complete development after all tasks
+```
+
+With nothing (delete the line).
+
+## Step 8: Remove Isolation Tags from Writing-Plans
+
+This is already handled by the modified Step 4b content above. The `--tag worktree`/`--tag branch` isolation table and surrounding paragraphs have been replaced with a single line: "All beans use worktrees by default when `--workers > 1`. No isolation tags needed."
+
+## Step 9: Verify
+
+Read all four patched files and confirm:
 - Brainstorming → has ARGS line with `--skip-panel` and `--from-orchestrate` flags, checklist has panel enrichment item, process flow has panel and `--from-orchestrate` nodes (intercepting after spec review), terminal state is flag-dependent, spec path is config-aware
-- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.json` for `plans.path` (parent dir) and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans)
-- Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets
-- All three have `[BEANS-PATCHED]` marker
+- Writing-plans → has ARGS line with `--from-orchestrate` flag, reads `orchestrate.json` for `plans.path` (parent dir) and `plans.commit`, has "Create Beans from Plan" section with `<plan-path>` references (not hardcoded), has "Orchestrate Context Check" before handoff, handoff has 4 options (including Ralph Beans), no isolation tag table
+- Executing-plans → Step 1 uses `beans list`, Step 2 uses `beans update`, Remember has beans bullets, Step 3 returns control (no finishing-a-development-branch)
+- Subagent-driven-development → uses `beans list --json` instead of `create TodoWrite`, uses `beans update {id} --status completed` instead of `Mark task complete in TodoWrite`, no final code reviewer dispatch, no finishing-a-development-branch
+- All four have `[BEANS-PATCHED]` marker
 
 Report: "Superpowers patched. Flow: brainstorming (with panel enrichment) → writing-plans (with beans) → executing-plans OR develop-team."
