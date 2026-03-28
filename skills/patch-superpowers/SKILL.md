@@ -238,13 +238,17 @@ beans update <task-2-id> --blocked-by <task-1-id>
 
 **Default to `worktree` for every bean.** The parallelism gain far outweighs the worktree setup cost. Only use `branch` when a bean is so trivial that isolation adds no value.
 
-**Verify:**
+**Verify (HARD GATE — do NOT proceed until all checks pass):**
 \```bash
 beans list
 beans roadmap
 \```
 
-Check: bean bodies contain full task steps (not just "See plan"), valid DAG, ready beans exist, each bean sized for one session.
+<HARD-GATE>
+For EACH bean, run `beans show {id} --json | jq -r '.body' | wc -l`. If ANY bean body is under 10 lines, STOP. The bean body is a pointer, not self-contained content. Go back and replace it with the full task steps from the plan.
+
+Bean bodies that say "Plan: ... Task N" or "See plan" are FAILURES. The implementer agent receives ONLY the bean body — it cannot read the plan file. Every step, code snippet, expected output, and commit instruction from the `### Task N:` section must be in the bean body.
+</HARD-GATE>
 
 **Coverage check:** Spawn a subagent to verify beans cover the full design with no gaps:
 
