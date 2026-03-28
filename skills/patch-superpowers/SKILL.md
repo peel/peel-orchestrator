@@ -248,23 +248,31 @@ beans roadmap
 For EACH bean, run `beans show {id} --json | jq -r '.body' | wc -l`. If ANY bean body is under 10 lines, STOP. The bean body is a pointer, not self-contained content. Go back and replace it with the full task steps from the plan.
 
 Bean bodies that say "Plan: ... Task N" or "See plan" are FAILURES. The implementer agent receives ONLY the bean body — it cannot read the plan file. Every step, code snippet, expected output, and commit instruction from the `### Task N:` section must be in the bean body.
-</HARD-GATE>
 
-**Coverage check:** Spawn a subagent to verify beans cover the full design with no gaps:
+After body check passes, spawn a coverage verification subagent. Do NOT proceed until it reports no gaps:
 
 \```
 Agent(
   subagent_type: "general-purpose",
   mode: "bypassPermissions",
-  prompt: "Read the design doc at <spec-path> and the bean list from `beans list --parent <epic-id> --json`. Verify:
-    1. Every requirement in the design has at least one bean covering it
-    2. No design section is missing bean coverage
-    3. Bean descriptions match the design intent (not drifted)
-    Report: covered requirements, gaps found, and any drift."
+  prompt: "Read the design doc at <spec-path>, the plan at <plan-path>, and the bean list from `beans list --parent <epic-id> --json`. For each bean, read its full body via `beans show {id} --json`.
+
+  Verify:
+    1. Every requirement in the design spec has at least one bean covering it
+    2. Every task in the plan has a corresponding bean
+    3. Bean bodies contain actual step-by-step instructions (not pointers)
+    4. Bean bodies are not truncated (compare line count against plan task)
+    5. Dependencies correctly reflect the plan's task ordering
+    6. No design section is missing bean coverage
+
+  Report: covered requirements, gaps found, truncations, and any drift.
+  If ALL checks pass, report COVERAGE_COMPLETE.
+  If ANY check fails, report COVERAGE_GAPS with specifics."
 )
 \```
 
-If gaps are found, create additional beans to cover them. Re-run `beans roadmap` after fixes.
+If the subagent reports COVERAGE_GAPS: fix the gaps (create missing beans, flesh out truncated bodies, fix dependencies). Re-run the coverage check. Do NOT proceed until COVERAGE_COMPLETE.
+</HARD-GATE>
 
 **Commit beans to repository:**
 \```bash
