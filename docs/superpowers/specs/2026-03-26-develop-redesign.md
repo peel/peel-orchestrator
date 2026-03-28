@@ -400,7 +400,8 @@ scripts/detect-reviewers.sh {worktree} {integration-branch}
   → Outputs one checklist name per line. Empty → baseline only
 
 scripts/reset-slot.sh {worktree} {integration-branch}
-  → git reset --hard, git clean -fd
+  → Reset worker branch to current integration HEAD:
+    git reset --hard {integration-branch} && git clean -fd
 
 scripts/post-rebase-verify.sh {worktree} {verify-cmd}
   → Run verification, write .verification-output.txt
@@ -415,7 +416,7 @@ Replaces the review coordinator. Procedure executed by the lead on demand.
 1. DETECT REVIEWERS
    Bash("scripts/detect-reviewers.sh {worktree} {integration-branch}")
    → One reviewer per output line. Empty → baseline only
-   → Cycle 2+: narrow to flagged-by tag reviewers only
+   → All cycles use the same reviewers (no narrowing)
 
 2. BUILD PROMPTS
    Read("skills/develop-swarm/roles/reviewer.md")
@@ -432,8 +433,8 @@ Replaces the review coordinator. Procedure executed by the lead on demand.
    → Track reviewer name for flagged-by
 
 5. AGGREGATE
-   Any ISSUES → ISSUES + merged list, tag flagged-by
-   Any COMMENTS → APPROVED_WITH_COMMENTS + suggestions, tag flagged-by
+   Any ISSUES → ISSUES + merged list
+   Any COMMENTS → APPROVED_WITH_COMMENTS + suggestions
    All clean → APPROVED
 ```
 
@@ -493,8 +494,8 @@ digraph orchestration {
 | `role:review-fix-{cycle}` | Lead on ISSUES | Lead on next review | Fix cycle tracking |
 | `bg-task:{task_id}` | Lead on spawn | Lead on result | Links to background task |
 | `spawned-at:{epoch}` | Lead on spawn | Lead on result | Stall detection |
-| `worktree-slot:{prefix}-{N}` | Lead on dispatch | Lead on completion | Worktree assignment |
-| `flagged-by:{names}` | Review Pipeline | Lead on next cycle | Reviewer narrowing |
+| `worktree-slot:{prefix}-{N}` | Lead on dispatch | Lead after merge + reset (steps 8-9) | Worktree assignment. Preserved during implementation, review, fix cycles, and restart. Cleared only when bean is completed and slot freed. |
+| `flagged-by:{names}` | Review Pipeline | Lead on next cycle | Tracks which reviewers flagged issues (diagnostic) |
 | `needs-attention` | Lead on escalation | User manually | Blocks automation |
 | `stall-respawns:{N}` | Lead on stall | — | Escalation counter |
 
