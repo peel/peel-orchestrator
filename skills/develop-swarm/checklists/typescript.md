@@ -1,0 +1,3 @@
+- Idiomatic TypeScript? (proper types, no unnecessary `any` or type assertions)
+- Uses existing type utilities? (no hand-rolled type guards that duplicate library types)
+- Async patterns correct? (no unhandled promises, proper error propagation)
