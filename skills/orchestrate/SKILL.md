@@ -27,7 +27,6 @@ Parse from `{ARGS}`:
 | `--skip-panel` | false | Passed through to define phase |
 | `--workers <N>` | 2 | Passed through to develop phase |
 | `--max-review-cycles <N>` | 3 | Passed through to develop phase |
-| `--max-total-turns <N>` | 200 | Passed through to develop phase |
 
 Provider configuration lives in `orchestrate.json` only — no CLI overrides. Each phase reads its provider list from `providers.phases.<phase>`. Available providers are auto-detected at session start (see `hooks/session-start-check-providers.sh`).
 
@@ -49,18 +48,15 @@ Read `orchestrate.json` (project root) if it exists. Format is JSON:
     },
     "timeout": { "attended": 120, "unattended": 90 }
   },
-  "ralph": {
+  "develop": {
+    "execution": "subagent",
     "workers": 2,
     "max_review_cycles": 3,
     "max_impl_turns": 50,
-    "max_review_turns": 30,
-    "max_total_turns": 200,
-    "ci_max_retries": 3,
     "stall_timeout_min": 15,
     "stall_max_respawns": 2
   },
   "models": {},
-  "develop": {},
   "plans": {}
 }
 ```
@@ -71,7 +67,7 @@ Read `orchestrate.json` (project root) if it exists. Format is JSON:
 |---|---|---|
 | models.discover | All DISCOVER subagents | "default" (session model) |
 | models.define | Panel advocates, brainstorming subagents | "default" |
-| models.develop | Implementers, reviewers, ralph orchestrator | "default" |
+| models.develop | Implementers, reviewers, develop orchestrator | "default" |
 | models.deliver | Drift analysis, docs review | "default" |
 
 "default" means inherit the session model — the agent omits the `model:` parameter so the parent's model is used. Omitted keys are treated as "default".
@@ -82,7 +78,7 @@ Read `orchestrate.json` (project root) if it exists. Format is JSON:
 |---|---|---|
 | DISCOVER | codex | Research depth from two code-oriented models |
 | DEFINE (panel) | codex, gemini | Maximum perspectives for architectural decisions |
-| DEVELOP (ralph) | none | Ralph's single-pass domain-expert review handles this |
+| DEVELOP | none | Develop's single-pass domain-expert review handles this |
 | DEVELOP (holistic) | codex | Outside perspective on the full epic |
 | DELIVER | codex | Drift detection and docs review |
 
@@ -103,7 +99,7 @@ Run this section immediately on invocation, before any phase.
 1. Set provider defaults from the table above. Set model defaults from the Model Defaults table.
 2. If `orchestrate.json` exists (project root): read it with the Read tool. Parse each JSON key:
    - `providers` — provider definitions and phase assignments
-   - `ralph` — set workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
+   - `develop` — set execution, workers, max_review_cycles, max_impl_turns, stall_timeout_min, stall_max_respawns. If `develop` block is absent or empty, fall back to `ralph` block for backwards compatibility.
    - `models` — override model defaults for each phase. `develop` is a string key. "default" means omit the `model:` parameter to inherit the session model.
 3. Parse CLI flags from `{ARGS}`. Override any config file values.
 4. Store final config values for use throughout the session.
@@ -197,7 +193,7 @@ Build args for the develop phase:
 - `--epic <epic-id>`
 - `--workers <workers>` (if overridden from defaults)
 - `--max-review-cycles <max-review-cycles>` (if overridden from defaults)
-- `--max-total-turns <max-total-turns>` (if overridden from defaults)
+- `--execution <execution>` (if `develop.execution` is set in config)
 
 Invoke:
 ```
