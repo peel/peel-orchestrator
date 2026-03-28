@@ -86,7 +86,7 @@ hooks/dispatch-provider.sh <provider> \
   --instructions "Produce a position paper: what you recommend, why, key tradeoffs, risks."
 ```
 
-Fire all as `run_in_background: true` in one message. Read `skills/ralph/roles/provider-dispatch.md` for collection rules. Collect in **attended** mode. Wait for all results before proceeding.
+Fire all as `run_in_background: true` in one message. Read `skills/develop-swarm/roles/provider-dispatch.md` for collection rules. Collect in **attended** mode. Wait for all results before proceeding.
 
 ### Phase 2 — Cross-Review (parallel)
 

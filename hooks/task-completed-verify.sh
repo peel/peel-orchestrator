@@ -2,7 +2,7 @@
 # TaskCompleted hook: gate task completion on build/test verification.
 # Receives JSON on stdin. Exits 0 to allow, 2 to reject with feedback.
 #
-# Fires for develop-team teams. Skips reviewer completions (no code changes).
+# Fires for develop-swarm teams. Skips reviewer completions (no code changes).
 # Finds the worktree from bean tags via beans CLI.
 # Runs: go build, go test -short, and flutter test (if dart files changed).
 
@@ -14,9 +14,9 @@ TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // ""')
 TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // ""')
 CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
 
-# Only gate develop-team teams
+# Only gate develop-swarm teams
 case "$TEAM_NAME" in
-  develop-team-*) ;;
+  develop-swarm-*) ;;
   *) exit 0 ;;
 esac
 

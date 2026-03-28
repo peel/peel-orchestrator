@@ -1,7 +1,7 @@
 # 001 — Spawn ralph as background subagent for DEVELOP phase
 
 **Date:** 2026-03-14
-**Status:** accepted
+**Status:** superseded by 004
 
 ## Context
 

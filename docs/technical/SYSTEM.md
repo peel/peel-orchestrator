@@ -2,15 +2,17 @@
 
 ## Overview
 
-Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecycle (DISCOVER, DEFINE, DEVELOP, DELIVER) with optional multi-model support. It ships as a collection of skills (markdown instruction files), hooks (bash scripts on Claude Code events), and configuration (HCL). External providers (Codex via CLI, Gemini via CLI) participate in debate and review phases but are optional — all skills degrade to Claude-only subagents when providers are unavailable.
+Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecycle (DISCOVER, DEFINE, DEVELOP, DELIVER) with optional multi-model support. It ships as a collection of skills (markdown instruction files), hooks (bash scripts on Claude Code events), and configuration (JSON). External providers (Codex via CLI, Gemini via CLI) participate in debate and review phases but are optional — all skills degrade to Claude-only subagents when providers are unavailable.
 
 ## Components
 
-**Orchestrate** (`skills/orchestrate/SKILL.md`) — Top-level lifecycle coordinator. Reads config, chains phases. DEVELOP phase spawns ralph as a background subagent (`Agent()`) for context isolation, waits for `RALPH_STATUS` result, then runs external holistic review. External provider calls go through the provider-dispatch procedure (`roles/provider-dispatch.md`). Delegates to other skills per phase.
+**Orchestrate** (`skills/orchestrate/SKILL.md`) — Top-level lifecycle coordinator. Reads config, chains phases. Delegates to other skills per phase. External provider calls go through the provider-dispatch procedure (`roles/provider-dispatch.md`).
 
 **Panel** (`skills/panel/SKILL.md`) — Structured multi-model adversarial analysis. Claude, Codex, and Gemini argue independent positions, cross-review, then Claude synthesizes a verdict. External providers are called as async parallel background Bash tasks via the dispatch procedure (`roles/provider-dispatch.md`). Degrades to 2 Claude subagents when no external providers are available.
 
-**Ralph** (`skills/develop-subs/SKILL.md`, `skills/develop-team/SKILL.md`) — Parallel bean implementation. Dispatches implementer subagents in worktrees with single-pass domain-expert review (baseline fallback when no experts match). Two variants: subagent-driven and team-based. The lead computes `MAIN_BEANS_PATH` (absolute path to main checkout's `.beans/`) at startup and substitutes it into all agent prompts; worktree agents use `beans --beans-path {MAIN_BEANS_PATH}` so bean updates are always visible to the TUI and lead. Implementers are prohibited from changing bean status — only the lead manages status transitions. Includes reaction checks (CI failure escalation, stall detection, review overflow) in its "Assess and Act" loop. When invoked with `--caller orchestrate`, outputs `RALPH_STATUS: COMPLETE` or `RALPH_STATUS: PARKED` on exit.
+**Develop** (`skills/develop/SKILL.md`) — Bean implementation phase. Composes superpowers skills (subagent-driven-development, executing-plans) with beans-based state tracking, holistic review, and deferred finishing. Three execution modes: subagent-driven (recommended), sequential, and swarm. Superpowers skills are patched to skip finishing — develop owns the lifecycle.
+
+**Swarm** (`skills/develop-swarm/SKILL.md`) — Parallel worktree-per-bean execution with incremental rebase-before-review merge. Flat subagents (no coordinator nesting). Uses an assess-and-act orchestration loop. The lead computes `MAIN_BEANS_PATH` (absolute path to main checkout's `.beans/`) at startup and substitutes it into all agent prompts; worktree agents use `beans --beans-path {MAIN_BEANS_PATH}` so bean updates are always visible to the TUI and lead. Implementers are prohibited from changing bean status — only the lead manages status transitions.
 
 **Hooks** (`hooks/`) — `session-start-check-providers.sh` checks CLI provider binaries are on PATH on session start. `task-completed-verify.sh` gates task completion with build/test verification (go build, go test, flutter test).
 
@@ -20,11 +22,11 @@ Fiddle is a Claude Code plugin that orchestrates a four-phase development lifecy
 
 ## Data
 
-**`orchestrate.conf`** (HCL) — Declares which external providers are used per phase. All ralph settings (worker counts, review cycle limits, turn budgets, reaction thresholds) live in a single `ralph {}` block. The `plans {}` block controls where superpowers saves plans/specs and whether to commit them. Merge order: defaults, config file, CLI flags.
+**`orchestrate.json`** (JSON) — Declares which external providers are used per phase. The `plans {}` block controls where superpowers saves plans/specs and whether to commit them. Merge order: defaults, config file, CLI flags.
 
 **`.claude/orchestrate-events.log`** — Ephemeral event log created during orchestrate runs. Tracks phase transitions, failures, escalations. Deleted on cleanup.
 
-**Bean state** — Managed by external `beans` CLI. Epics, tasks, tags (worktree slots, CI retries, stall respawns, needs-attention). Beans are the unit of work for ralph.
+**Bean state** — Managed by external `beans` CLI. Epics, tasks, tags (worktree slots, CI retries, stall respawns, needs-attention). Beans are the unit of work for develop and swarm.
 
 ## Infrastructure
 
@@ -46,5 +48,5 @@ Runs entirely locally as a Claude Code plugin. No server, no cloud, no CI. Insta
 None currently identified.
 
 ---
-Last reviewed: 2026-03-19
+Last reviewed: 2026-03-28
 

@@ -295,7 +295,7 @@ Insert before `**Which approach?"**`:
 ```
 **3. Beans Batch (separate session)** - Open new session with executing-plans, batch execution using beans for state tracking
 
-**4. Ralph Beans (hands-off)** - Run `/fiddle:develop-team --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
+**4. Swarm (hands-off)** - Run `/fiddle:develop-swarm --epic <epic-id>` — automated parallel agents with implement/review cycles, no human checkpoints
 ```
 
 After the `**If Inline Execution chosen:**` block, add:
@@ -305,9 +305,9 @@ After the `**If Inline Execution chosen:**` block, add:
 - **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
 - Beans are already created — executor uses `beans list --json` to find them
 
-**If Ralph Beans chosen:**
+**If Swarm chosen:**
 - Guide them to open new session (optionally in worktree)
-- Run `/fiddle:develop-team --epic <epic-id>` with appropriate flags (e.g., `--workers 2`)
+- Run `/fiddle:develop-swarm --epic <epic-id>` with appropriate flags (e.g., `--workers 2`)
 - The `--epic` flag scopes execution to only beans under this epic — safe when other beans exist
 - Beans are self-contained — agents work from bean bodies directly, no plan file needed
 - Fully automated: implement → review → fix cycles until all beans complete
@@ -547,4 +547,4 @@ Read all four patched files and confirm:
 - Subagent-driven-development → uses `beans list --json` instead of `create TodoWrite`, uses `beans update {id} --status completed` instead of `Mark task complete in TodoWrite`, no final code reviewer dispatch, no finishing-a-development-branch
 - All four have `[BEANS-PATCHED]` marker
 
-Report: "Superpowers patched. Flow: brainstorming (with panel enrichment) → writing-plans (with beans) → executing-plans OR develop-team."
+Report: "Superpowers patched. Flow: brainstorming (with panel enrichment) → writing-plans (with beans) → executing-plans OR develop-swarm."
