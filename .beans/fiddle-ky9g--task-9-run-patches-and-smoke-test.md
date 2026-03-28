@@ -1,10 +1,9 @@
 ---
-# fiddle-4z86
+# fiddle-ky9g
 title: 'Task 9: Run patches and smoke test'
-status: scrapped
+status: todo
 type: task
-priority: normal
-created_at: 2026-03-28T11:12:20Z
+created_at: 2026-03-28T11:17:14Z
 updated_at: 2026-03-28T11:17:14Z
 parent: fiddle-p0do
 blocked_by:
@@ -43,3 +42,20 @@ grep -c "finishing-a-development-branch" ~/.claude/plugins/cache/superpowers-mar
 
 ```bash
 # Check the skill is discoverable
+grep "fiddle:develop" skills/develop/SKILL.md
+grep "fiddle:develop-swarm" skills/develop-swarm/SKILL.md
+```
+
+- [ ] **Step 4: Verify no broken references across the project**
+
+```bash
+# Check for stale ralph references
+grep -r "ralph" skills/ hooks/ --include="*.md" --include="*.sh" --include="*.json" | grep -v ".beans/" | grep -v "docs/" || echo "Clean"
+
+# Check for stale develop-subs/develop-team references
+grep -r "develop-subs\|develop-team" skills/ hooks/ --include="*.md" --include="*.sh" | grep -v ".beans/" || echo "Clean"
+```
+
+- [ ] **Step 5: Commit any fixes**
+
+If the verification steps found issues, fix and commit.
