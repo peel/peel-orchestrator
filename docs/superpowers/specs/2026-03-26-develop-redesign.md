@@ -89,9 +89,10 @@ develop(epic-id):
        Re-invoke the same skill — it picks up from bean state.
 
   5. HOLISTIC REVIEW
-     All beans completed → if external providers configured
-     (develop_holistic in orchestrate.json), dispatch via provider.
-     Otherwise spawn reviewer subagent. Either way, provide:
+     All beans completed → dispatch reviewer via provider-dispatch
+     procedure (same mechanism as all other provider calls).
+     If no providers available, spawn reviewer subagent as fallback.
+     Provide:
        - Full diff: git diff main...HEAD (in worktree)
        - All bean acceptance criteria from the epic
        - Instruction: check cross-bean consistency, duplicated
@@ -115,6 +116,14 @@ develop(epic-id):
 ```
 
 **Restart resilience:** On session restart, develop re-derives state from beans and resumes. No session-scoped data to lose.
+
+**Swarm restart rules:**
+- Clear stale `bg-task:*` tags — old task IDs don't exist in the new session
+- Preserve `worktree-slot:*` tags — slot assignments are durable, beans keep their worktrees
+- On dispatch: if the bean already has a `worktree-slot` tag, reuse that slot (do NOT reset). If no tag, assign an available slot
+- Stall detection handles respawning naturally — orphaned `role:implement`/`role:review` beans trigger respawn after timeout
+- Integration worktree is still valid — merged beans stay merged
+- Fresh implementers check `git log --oneline` in the worktree to find and continue prior work
 
 ## Execution Choices
 
@@ -309,6 +318,60 @@ The `develop-swarm/roles/implementer.md` adds beyond the current template:
 
 **Codebase Context:** Lead injects relevant files and parent contracts into `{CODEBASE_CONTEXT}`.
 
+### Coupling Detection Protocol
+
+Defense-in-depth approach to preventing parallel dispatch of coupled beans.
+
+```dot
+digraph coupling {
+    rankdir=TB;
+
+    "Ready beans to dispatch" [shape=box];
+    "blocked-by relationship?" [shape=diamond];
+    "Already sequential" [shape=box style=filled fillcolor=lightgrey];
+    "Scan bean bodies for\nfile/directory references" [shape=box];
+    "Overlapping paths?" [shape=diamond];
+    "Serialize: dispatch\none, queue the other" [shape=box style=filled fillcolor=lightgrey];
+    "Dispatch in parallel" [shape=box style=filled fillcolor=lightgreen];
+    "Clash fires\nduring implementation?" [shape=diamond];
+    "Implementer warned,\nrebase handles conflict" [shape=box];
+    "No conflict" [shape=box];
+
+    "Ready beans to dispatch" -> "blocked-by relationship?";
+    "blocked-by relationship?" -> "Already sequential" [label="yes"];
+    "blocked-by relationship?" -> "Scan bean bodies for\nfile/directory references" [label="no"];
+    "Scan bean bodies for\nfile/directory references" -> "Overlapping paths?";
+    "Overlapping paths?" -> "Serialize: dispatch\none, queue the other" [label="yes"];
+    "Overlapping paths?" -> "Dispatch in parallel" [label="no"];
+    "Dispatch in parallel" -> "Clash fires\nduring implementation?";
+    "Clash fires\nduring implementation?" -> "Implementer warned,\nrebase handles conflict" [label="yes"];
+    "Clash fires\nduring implementation?" -> "No conflict" [label="no"];
+}
+```
+
+```
+COUPLING DETECTION (before parallel dispatch)
+
+For each pair of ready beans:
+
+1. DEPENDENCY CHECK
+   beans show {id} --json → check blocked-by
+   If either bean blocks the other → already sequential, skip
+
+2. PATH OVERLAP CHECK
+   Extract file/directory references from both bean bodies:
+   - Explicit paths (e.g., "internal/activity/store.go")
+   - Package/directory names (e.g., "internal/activity")
+   - Shared interface references (e.g., "Store interface")
+   If any overlap → serialize: dispatch one now, queue the other
+
+3. DISPATCH
+   No overlap detected → safe to dispatch in parallel
+   Clash hook provides runtime safety net — if the heuristic
+   missed a coupling, the implementer is warned on file write
+   and the rebase step resolves conflicts
+```
+
 ### Conflict Resolution
 
 Everything needed is in git. When rebase produces conflicts:
@@ -437,9 +500,9 @@ digraph orchestration {
 
 ### Worktree Management
 
-Delegates to `superpowers:using-git-worktrees` for directory selection and safety. Extends with multi-slot setup.
+Develop protocol step 2 creates the epic worktree via `using-git-worktrees`. Swarm reuses this as the integration target and adds worker slots.
 
-**Setup:** Integration worktree + N worker slots, project setup + baseline tests per worktree.
+**Setup:** The develop-created worktree IS the integration branch. Swarm adds N worker slots forked from it. Project setup + baseline tests per slot.
 
 **Between beans:** `scripts/reset-slot.sh` + re-run project setup if deps changed.
 
