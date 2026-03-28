@@ -1,12 +1,13 @@
 ---
 # fiddle-lluw
 title: 'Task 5: Add superpowers patches'
-status: todo
+status: scrapped
 type: task
+priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T10:37:45Z
-updated_at: 2026-03-28T10:37:45Z
+updated_at: 2026-03-28T11:11:26Z
 parent: fiddle-p0do
 ---
 

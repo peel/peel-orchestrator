@@ -1,13 +1,13 @@
 ---
 # fiddle-n44p
 title: 'Task 4: Create develop-swarm SKILL.md'
-status: todo
+status: scrapped
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T10:37:45Z
-updated_at: 2026-03-28T10:55:37Z
+updated_at: 2026-03-28T11:11:26Z
 parent: fiddle-p0do
 blocked_by:
     - fiddle-ajdt
