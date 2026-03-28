@@ -152,6 +152,7 @@ Copy `skills/ralph/roles/implementer.md` as base. Apply these changes:
 
 1. Strip all `<!-- VARIANT:subs -->`, `<!-- VARIANT:team -->`, `<!-- END VARIANT:* -->` blocks and their contents
 2. Strip the `<!-- CONDITIONAL -->` Git Coordination section entirely (swarm always uses worktrees)
+3. Preserve `{BEANS_ROOT}` and `{MAIN_BEANS_PATH}` placeholders in Command Execution Rules — the lead still injects these so the implementer can call `beans` from the worktree
 3. Add `{CODEBASE_CONTEXT}` placeholder section after `## Workspace`:
 
 ```markdown
@@ -277,12 +278,17 @@ Bean: <BEAN_ID>"
 - Create: `skills/develop-swarm/checklists/dart.md` (copy)
 - Create: `skills/develop-swarm/roles/lead-procedures.md`
 
-- [ ] **Step 1: Copy checklists**
+- [ ] **Step 1: Copy checklists and provider templates**
 
 ```bash
 mkdir -p skills/develop-swarm/checklists
+mkdir -p skills/develop-swarm/roles
 cp skills/ralph/checklists/*.md skills/develop-swarm/checklists/
+cp skills/ralph/roles/provider-dispatch.md skills/develop-swarm/roles/
+cp skills/ralph/roles/provider-context.md skills/develop-swarm/roles/
 ```
+
+Provider-dispatch and provider-context are used by the holistic review (develop protocol step 5) and the swarm review pipeline. They must be relocated before deleting `skills/ralph/`.
 
 - [ ] **Step 2: Create `skills/develop-swarm/roles/lead-procedures.md`**
 
@@ -415,7 +421,7 @@ Add another step. For both `subagent-driven-development` and `executing-plans`:
 
 - [ ] **Step 4: Add Patch 8: Remove `--tag branch` from writing-plans**
 
-In the existing writing-plans patch (Step 4b), remove the `--tag worktree` / `--tag branch` isolation tag table and instructions. Replace with: "All beans use worktrees by default. No isolation tags needed."
+In the existing writing-plans patch (Step 4b), find the section starting with `**Isolation tags:**` through the end of the table and the two paragraphs following it (`**Default to \`worktree\` for every bean.**` and the explanation). Remove the entire block. Replace with: "All beans use worktrees by default when `--workers > 1`. No isolation tags needed."
 
 - [ ] **Step 5: Update the skill description**
 
@@ -461,11 +467,22 @@ argument-hint: --epic <id> [--execution subagent|sequential|swarm] [--workers 2]
 
 **Configuration:** Parse `--epic` (required), `--execution`, `--workers`, `--max-review-cycles` from args. Read `develop {}` from `orchestrate.json`, fall back to `ralph {}`.
 
-**Develop protocol:** Steps 1-8 from the spec, with the dot diagram. Include the hard gate on execution choice.
+**Develop protocol:** Steps 1-8 from the spec, with the dot diagram. Include:
+- Step 1: VALIDATE — `beans show {epic-id} --json`, check child beans exist
+- Step 2: WORKTREE — `Skill("superpowers:using-git-worktrees")`
+- Step 3: EXECUTION CHOICE — hard gate, three options with `--execution` flag support
+- Step 4: EXECUTE — delegate to superpowers or swarm, handle needs-attention and context exhaustion re-invocation
+- Step 5: HOLISTIC REVIEW — dispatch via `skills/develop-swarm/roles/provider-dispatch.md` procedure. If no providers available, spawn reviewer subagent as fallback. Provide full diff + acceptance criteria. Max cycles from config.
+- Step 6: Fix loop — create fix beans, back to step 4
+- Step 7: FINISH — `Skill("superpowers:finishing-a-development-branch")`
+- Step 8: RETURN — terminal states (merge/PR → deliver, keep → deliver, discard → abort, needs-attention → wait)
 
-**Execution choices:** Three options (A: subagent-driven, B: sequential, C: swarm) with delegation instructions.
+**Execution choices:** Three options:
+- A: `Skill("superpowers:subagent-driven-development")` — recommended
+- B: `Skill("superpowers:executing-plans")` — interactive
+- C: `Read("skills/develop-swarm/SKILL.md")` → follow inline — parallel
 
-**Stall detection:** Monitor bean state between execution turns.
+**Stall detection:** Monitor bean state between execution turns. Read `spawned-at` tags, check elapsed vs `stall_timeout_min`.
 
 **Red flags:** The full list from the spec.
 
@@ -548,7 +565,7 @@ Bean: <BEAN_ID>"
 
 **Files:**
 - Modify: `docs/technical/SYSTEM.md`
-- Create: `docs/technical/decisions/003-develop-redesign.md`
+- Create: `docs/technical/decisions/004-develop-redesign.md`
 - Delete: `skills/develop-subs/`
 - Delete: `skills/develop-team/`
 - Delete: `skills/ralph/`
@@ -560,10 +577,10 @@ Update the component descriptions:
 - **Swarm** — new entry describing `develop-swarm/SKILL.md`
 - Remove references to `develop-subs`, `develop-team`, `ralph-core.md`, review coordinator
 
-- [ ] **Step 2: Create ADR 003**
+- [ ] **Step 2: Create ADR 004**
 
 ```markdown
-# 003 — Develop phase redesign: superpowers composition with swarm option
+# 004 — Develop phase redesign: superpowers composition with swarm option
 
 **Date:** 2026-03-28
 **Status:** accepted
@@ -602,7 +619,7 @@ rm -rf skills/ralph/
 - [ ] **Step 4: Verify no dangling references**
 
 ```bash
-grep -r "develop-subs\|develop-team\|skills/ralph/" skills/ hooks/ docs/ orchestrate.json | grep -v ".beans/" || echo "Clean"
+grep -r "develop-subs\|develop-team\|skills/ralph/\|review-coordinator" skills/ hooks/ docs/ orchestrate.json | grep -v ".beans/" || echo "Clean"
 ```
 
 - [ ] **Step 5: Commit**
