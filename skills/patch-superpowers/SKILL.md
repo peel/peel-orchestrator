@@ -11,22 +11,11 @@ After updating the superpowers plugin, run this skill to re-apply beans integrat
 
 **Announce:** "Patching superpowers for beans integration."
 
-## Step 0: Reset Superpowers Cache
+## Step 0: Reset Superpowers (user action)
 
-Re-install superpowers to get fresh (unpatched) cached files. This ensures patches apply cleanly regardless of previous state.
+Tell the user: "Before I patch, reinstall superpowers to get fresh files. Run: `! /plugin install superpowers`"
 
-```bash
-claude /plugin install superpowers 2>/dev/null || true
-```
-
-If `claude` CLI is not available, locate the plugin source and copy fresh files manually:
-```bash
-# Find the plugin source
-ls "$CLAUDE_CONFIG_DIR/plugins/superpowers-marketplace/" 2>/dev/null
-# The cache is populated from this source on install
-```
-
-If re-install is not possible (offline, no CLI), proceed — Step 2 will skip already-patched files.
+Wait for the user to confirm the reinstall completed before proceeding. Fresh files ensure all patches apply cleanly.
 
 ## Step 1: Find the Superpowers Cache
 
