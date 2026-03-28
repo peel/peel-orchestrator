@@ -1,12 +1,12 @@
 ---
 name: fiddle:develop
-description: Run the DEVELOP phase — execute implementation plan via ralph (subs or team), handle failures and respawn loops, run holistic review. Requires an epic with beans ready.
-argument-hint: --epic <id> [--workers 2] [--max-review-cycles 3] [--max-total-turns 200]
+description: Run the DEVELOP phase — execute beans via superpowers (subagent-driven or sequential) or swarm mode, with holistic review and deferred finishing.
+argument-hint: --epic <id> [--execution subagent|sequential|swarm] [--workers 2]
 ---
 
 # Develop
 
-Execute an implementation plan by spawning ralph workers, handling failures, and running holistic review when all beans are complete.
+Execute an implementation plan by delegating to superpowers or swarm, handling failures, running holistic review, and finishing the branch.
 
 ARGUMENTS: {ARGS}
 
@@ -17,27 +17,122 @@ Parse from `{ARGS}`:
 | Flag | Default | Description |
 |---|---|---|
 | `--epic <id>` | **required** | The epic to develop |
-| `--workers <N>` | from config | Parallel worker count for ralph |
-| `--max-review-cycles <N>` | from config | Max review cycles before escalating |
-| `--max-total-turns <N>` | from config | Max agent turns for ralph subagent |
-| `--execution <mode>` | from config | Pre-select execution mode (skip prompt) |
+| `--execution <mode>` | from config | Execution mode: `subagent`, `sequential`, or `swarm` |
+| `--workers <N>` | from config | Parallel worker count (swarm mode) |
+| `--max-review-cycles <N>` | from config | Max holistic review cycles before escalating |
+| `--max-impl-turns <N>` | from config | Max agent turns per implementer |
+| `--stall-timeout-min <N>` | from config | Minutes before stall detection fires |
+| `--stall-max-respawns <N>` | from config | Max respawns before needs-attention |
 
 ### Config File
 
-Read `orchestrate.json` (project root) if it exists. Extract:
-- `ralph {}` block — workers, max_review_cycles, max_impl_turns, max_review_turns, max_total_turns, ci_max_retries, stall_timeout_min, stall_max_respawns
-- `models.develop` — model for implementers, reviewers, ralph orchestrator
-- `providers.develop_holistic` — provider list for holistic review (default: `["codex"]`)
-- Provider declarations for holistic review providers
+Read `orchestrate.json` (project root) if it exists. Extract from `develop {}` block first; if absent or empty, fall back to `ralph {}` block:
+- workers, max_review_cycles, max_impl_turns, stall_timeout_min, stall_max_respawns
+- `models.develop` — model for implementers and reviewers
+- `providers.develop_holistic` — provider list for holistic review
 - `develop.execution` — pre-configured execution mode
 
 CLI flags override config file values. Defaults when no config:
-- workers: 2, max_review_cycles: 3, max_impl_turns: 50, max_review_turns: 30, max_total_turns: 200
-- ci_max_retries: 3, stall_timeout_min: 15, stall_max_respawns: 2
+- workers: 2, max_review_cycles: 3, max_impl_turns: 50
+- stall_timeout_min: 15, stall_max_respawns: 2
+
+## Develop Protocol
+
+```dot
+digraph develop_protocol {
+    rankdir=TB;
+
+    "Validate epic" [shape=box];
+    "Worktree setup\n(using-git-worktrees)" [shape=box];
+    "User picks mode" [shape=diamond];
+    "Execute\n(superpowers or swarm)" [shape=box];
+    "All beans completed?" [shape=diamond];
+    "Holistic review" [shape=box];
+    "APPROVED?" [shape=diamond];
+    "Create fix beans" [shape=box];
+    "Max cycles?" [shape=diamond];
+    "Tag needs-attention\npresent to user" [shape=box];
+    "finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
+    "Return to orchestrate" [shape=doublecircle];
+
+    "Validate epic" -> "Worktree setup\n(using-git-worktrees)";
+    "Worktree setup\n(using-git-worktrees)" -> "User picks mode";
+    "User picks mode" -> "Execute\n(superpowers or swarm)";
+    "Execute\n(superpowers or swarm)" -> "All beans completed?";
+    "All beans completed?" -> "Holistic review" [label="yes"];
+    "All beans completed?" -> "Tag needs-attention\npresent to user" [label="needs-attention"];
+    "Holistic review" -> "APPROVED?";
+    "APPROVED?" -> "finishing-a-development-branch" [label="yes"];
+    "APPROVED?" -> "Create fix beans" [label="issues"];
+    "Create fix beans" -> "Max cycles?";
+    "Max cycles?" -> "Execute\n(superpowers or swarm)" [label="no"];
+    "Max cycles?" -> "Tag needs-attention\npresent to user" [label="yes"];
+    "Tag needs-attention\npresent to user" -> "Execute\n(superpowers or swarm)" [label="user fixes"];
+    "finishing-a-development-branch" -> "Return to orchestrate";
+}
+```
+
+```
+develop(epic-id):
+  1. VALIDATE
+     beans show {epic-id} --json
+     Confirm epic has child beans. If none → stop.
+
+  2. WORKTREE SETUP
+     Skill("superpowers:using-git-worktrees")
+     → Creates isolated worktree for the epic
+     → Safety checks, dependency install, baseline tests
+
+  3. EXECUTION CHOICE
+     User picks mode (or pre-configured via `--execution` flag
+     or `develop.execution` in orchestrate.json):
+       a. Worktree + subagent-driven (recommended, `--execution subagent`)
+       b. Worktree + sequential (interactive, `--execution sequential`)
+       c. Swarm (parallel, `--execution swarm`)
+
+  4. EXECUTE
+     Delegate to chosen superpowers skill or develop-swarm.
+     Superpowers skills are patched: finishing-a-development-branch
+     is removed, worktree setup is skipped (already done).
+     They run beans to completion and return control.
+
+     If execution returns with needs-attention beans:
+       Present to user, wait for guidance.
+       When user fixes → back to step 4.
+
+     If execution returns with incomplete beans (context exhaustion):
+       Re-invoke the same skill — it picks up from bean state.
+
+  5. HOLISTIC REVIEW
+     All beans completed → dispatch reviewer via provider-dispatch
+     procedure (same mechanism as all other provider calls).
+     If no providers available, spawn reviewer subagent as fallback.
+     Provide:
+       - Full diff: git diff main...HEAD (in worktree)
+       - All bean acceptance criteria from the epic
+       - Instruction: check cross-bean consistency, duplicated
+         utilities, naming drift, dead code, missing integration
+     Verdict: APPROVED / ISSUES
+     Max cycles: max_review_cycles. Exceeded → needs-attention.
+
+  6. If ISSUES → create fix beans under epic → back to step 4
+     If APPROVED → continue
+
+  7. FINISH
+     Skill("superpowers:finishing-a-development-branch")
+     → User picks: merge, PR, keep, discard
+     → Worktree cleanup
+
+  8. RETURN to orchestrate with terminal state:
+     - merge/PR → orchestrate proceeds to deliver
+     - keep → orchestrate proceeds to deliver (branch preserved)
+     - discard → orchestrate stops, epic tagged abandoned
+     - needs-attention (from step 4/5) → orchestrate waits for user
+```
 
 ## Steps
 
-### Step 0: Validate Epic
+### Step 1: Validate Epic
 
 ```bash
 beans show <epic-id> --json
@@ -45,90 +140,85 @@ beans show <epic-id> --json
 
 Confirm it exists and has child beans. If no child beans, stop: "No beans found for this epic. Run `/fiddle:define` first."
 
-### Step 1: Execution Choice
-
-Check for `--execution` flag or `develop.execution` in config. If set, use that value without prompting. If not set, present options and **wait for the user to pick a number**:
+### Step 2: Worktree Setup
 
 ```
-"Beans are ready. Pick an execution mode (1-4):
+Skill("superpowers:using-git-worktrees")
+```
 
-1. Ralph Subs — automated background subagent with implement/review cycles
-2. Tmux Team — parallel workers in tmux panes via conductor agent
-3. Hands-on (this session) — superpowers:subagent-driven-development with human checkpoints
-4. Hands-on (parallel session) — superpowers:executing-plans in a new session"
+Creates an isolated worktree for the epic. Runs safety checks, dependency install, and baseline tests. All subsequent execution happens in this worktree.
+
+### Step 3: Execution Choice
+
+Check for `--execution` flag or `develop.execution` in config. If set, use that value without prompting. If not set, present options and **wait for the user to pick**:
+
+```
+"Beans are ready. Pick an execution mode (1-3):
+
+1. Subagent-driven (recommended) — fresh subagent per bean, two-stage review, sequential
+2. Sequential (interactive) — human-in-loop, you guide each bean
+3. Swarm (parallel) — worktree-per-bean, for large epics with independent beans"
 ```
 
 <HARD-GATE>
-Do NOT proceed until the user has explicitly chosen 1, 2, 3, or 4. Do NOT assume a default. Do NOT auto-select. Wait for their response.
+Do NOT proceed until the user has explicitly chosen 1, 2, or 3. Do NOT assume a default. Do NOT auto-select. Wait for their response.
 </HARD-GATE>
 
-- **If Ralph Subs:** proceed to Step 2 as normal.
-- **If Tmux Team:** proceed to Step 2 but use `develop-team` (team variant) instead of `develop-subs`.
-- **If Hands-on (this session):** invoke `Skill(skill: "superpowers:subagent-driven-development")`. When execution completes, proceed to Step 4 (Holistic Review).
-- **If Hands-on (parallel session):** guide the user to open a new session and run `superpowers:executing-plans`. Wait for the user to signal completion, then proceed to Step 4 (Holistic Review).
+### Step 4: Execute
 
-### Step 2: Spawn Ralph
+Delegate to the chosen execution mode. All three modes are patched: `finishing-a-development-branch` is removed (develop owns this step after holistic review), and worktree setup is skipped (already done in step 2).
 
-Which variant depends on the execution choice:
-- **Ralph Subs (option 1):** `../develop-subs/SKILL.md` (resolve relative to this skill's base directory)
-- **Tmux Team (option 2):** `../develop-team/SKILL.md`
-
-Use the Read tool to load the SKILL.md file. Do NOT use the Skill tool — these skills have `disable-model-invocation` since they are agent prompts, not directly invocable skills.
-
-<HARD-GATE>
-The two variants use COMPLETELY DIFFERENT dispatch mechanisms. Do NOT mix them up.
-- Ralph Subs → spawn as a background **subagent** via `Agent()`
-- Tmux Team → execute **inline in this session** (it needs TeamCreate/SendMessage which only work in the main session)
-</HARD-GATE>
-
-**Ralph Subs dispatch:**
+#### Option A: Subagent-driven (`--execution subagent`)
 
 ```
-ralph_task = Agent(
-  name: "ralph-develop-<epic-id>",
-  subagent_type: "general-purpose",
-  model: <models.develop>,  # if "default", omit model parameter to inherit session model
-  mode: "bypassPermissions",
-  run_in_background: true,
-  max_turns: <max_total_turns>,
-  prompt: "<contents of develop-subs/SKILL.md, with the following args substituted:>
-    --epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>
-    --max-impl-turns <max_impl_turns> --max-review-turns <max_review_turns>
-    --ci-max-retries <ci_max_retries> --stall-timeout-min <stall_timeout_min>
-    --stall-max-respawns <stall_max_respawns> --caller orchestrate"
-)
+Skill("superpowers:subagent-driven-development")
 ```
 
-Wait for the result:
+Delegates to superpowers, which handles:
+- Fresh subagent per bean (implementer)
+- Two-stage review (spec compliance, then code quality)
+- Fix cycles on review failure
+
+Beans-patched: uses `beans update` for state instead of TodoWrite. Sequential execution — one bean at a time. Parallelism across epics comes from running multiple sessions in separate worktrees, not from intra-session parallelism.
+
+When all beans are completed or parked, proceed to step 5.
+
+#### Option B: Sequential (`--execution sequential`)
+
 ```
-result = TaskOutput(task_id: ralph_task.id, block: true, timeout: 3600000)
+Skill("superpowers:executing-plans")
 ```
 
-**Tmux Team dispatch:**
+Lead executes each bean directly in the worktree. Human-in-loop between tasks. For small changes where the user wants to interact.
 
-Read develop-team/SKILL.md and follow its instructions directly in this session. You ARE the team lead. Execute the Setup, then the "Assess and Act" loop. The SKILL.md uses TeamCreate, TaskCreate, and SendMessage — these only work in the main session, NOT inside a subagent.
+Same patches: beans instead of TodoWrite, finishing removed.
 
-Pass these args to the instructions:
+When all beans are completed or parked, proceed to step 5.
+
+#### Option C: Swarm (`--execution swarm`)
+
+```
+Read("skills/develop-swarm/SKILL.md") → follow inline
+```
+
+Full parallel execution with worktree-per-bean and incremental merge. For large epics with genuinely independent beans. You ARE the lead — read the swarm SKILL.md and execute it inline in this session. Do NOT invoke via the Skill tool — it has `disable-model-invocation`.
+
+Pass these args to the swarm instructions:
 ```
 --epic <epic-id> --workers <workers> --max-review-cycles <max_review_cycles>
---max-impl-turns <max_impl_turns> --max-review-turns <max_review_turns>
+--max-impl-turns <max_impl_turns> --stall-timeout-min <stall_timeout_min>
+--stall-max-respawns <stall_max_respawns>
 ```
 
-When all beans are complete or parked, proceed to Step 3.
+When the swarm returns (all beans completed or needs-attention), proceed to step 5.
 
-For `critical` and `high` priority beans (either variant): include in the prompt an instruction for the review coordinator to additionally request a code review from configured DEVELOP providers via the provider-dispatch procedure.
+### Step 5: Handle Execution Result
 
-### Step 3: Handle Ralph Result
+Check bean state after execution returns:
 
-**Tmux Team:** You are already in the session — skip parsing. If all beans are complete, proceed to Step 4. If beans are parked with `needs-attention`, present them to the user (same as Case 2 below). After the user addresses them, loop back to Step 2 and resume the develop-team instructions.
+**All beans completed:** Proceed to Step 6 (Holistic Review).
 
-**Ralph Subs:** Parse the `result` from Step 2:
-
-**Case 1 — `RALPH_STATUS: COMPLETE`:**
-Ralph finished all beans successfully. Proceed to Step 4 (Holistic Review).
-
-**Case 2 — `RALPH_STATUS: PARKED`:**
-Some beans need attention. Parse the needs-attention bean list from the result.
+**Beans parked with `needs-attention`:**
 
 Present to user:
 ```
@@ -139,40 +229,99 @@ Present to user:
 You can: fix the issue and remove needs-attention tag, scrub the bean, or rework the scope."
 ```
 
-Wait for the user to address the parked beans. When they respond, respawn ralph — loop back to Step 2. **Re-use the identical SKILL.md prompt from the first spawn** — do NOT write a custom or simplified prompt. Ralph discovers current state from `beans list`.
+Wait for the user to address the parked beans. When they respond, loop back to Step 4 — re-invoke the same execution mode. It discovers current state from `beans list`.
 
-**Case 3 — Empty result, error, or max_turns exhausted:**
-Check bean state:
-```bash
-beans list --parent <epic-id> --json
-```
+**Incomplete beans (context exhaustion):** Re-invoke the same execution mode. It picks up from bean state.
 
-Present bean summary to user (completed, in-progress, todo, needs-attention counts). Ask: "Ralph's context was exhausted. Respawn to continue, or proceed to holistic review with current state?"
+### Step 6: Holistic Review
 
-- If user says respawn → loop to Step 2. **Re-use the identical SKILL.md prompt** — do NOT write a simplified prompt.
-- If user says proceed → Step 4
+When all epic beans are `completed` (none in `todo` or `in-progress`):
 
-### Step 4: Holistic Review
-
-When all epic beans are `completed` or `needs-attention` (none in `todo` or `in-progress`):
-
-1. If holistic review providers are configured, read `../ralph/roles/provider-dispatch.md` for collection rules. For each provider:
+1. **Dispatch reviewer via provider-dispatch.** Read `skills/develop-swarm/roles/provider-dispatch.md` for the dispatch procedure. For each configured holistic review provider:
 
    ```bash
-   DESIGN_FILE=$(mktemp /tmp/design-XXXX.md)
    DIFF_FILE=$(mktemp /tmp/diff-XXXX.txt)
-   # <write design doc to $DESIGN_FILE, git diff to $DIFF_FILE>
+   git diff main...HEAD > "$DIFF_FILE"
 
    hooks/dispatch-provider.sh <provider> \
      --role "Holistic reviewer" \
      --topic "Epic holistic review for <epic-id>" \
-     --design-doc-file "$DESIGN_FILE" \
      --diff-file "$DIFF_FILE" \
-     --instructions "Did the implementation match the design? Flag: inconsistencies, missed requirements, naming conflicts, dead code."
+     --instructions "Review the full diff for cross-bean consistency, duplicated utilities, naming drift, dead code, and missing integration. Compare against the epic's acceptance criteria."
    ```
 
    Fire all providers in parallel (`run_in_background: true`). Collect results in **unattended** mode (first-past-the-post).
 
-2. If no provider is available, perform the holistic review yourself: read the design doc, review the full diff, and compare.
-3. If holistic review creates fix beans → loop to Step 2. **Re-use the identical SKILL.md prompt from the original spawn** — Ralph discovers new beans via `beans list`. Do NOT write a custom prompt for fix cycles.
-4. If clean → done.
+2. **Fallback: subagent review.** If no providers are configured or available, spawn a reviewer subagent as fallback:
+
+   ```
+   Agent(
+     name: "holistic-reviewer",
+     subagent_type: "general-purpose",
+     mode: "bypassPermissions",
+     run_in_background: true,
+     max_turns: 30,
+     prompt: <full diff + acceptance criteria + review instructions>
+   )
+   ```
+
+   Provide:
+   - Full diff: `git diff main...HEAD` (in worktree)
+   - All bean acceptance criteria from the epic
+   - Instruction: check cross-bean consistency, duplicated utilities, naming drift, dead code, missing integration
+
+3. **Verdict:** APPROVED or ISSUES.
+
+4. **If ISSUES:** Create fix beans under the epic for each issue found. Loop back to Step 4 — re-invoke the same execution mode. It discovers the new fix beans via `beans list`.
+
+5. **If APPROVED:** Proceed to Step 7.
+
+6. **Max cycles:** If review cycles exceed `max_review_cycles`, tag the epic `needs-attention` and present to the user instead of looping.
+
+### Step 7: Finish
+
+```
+Skill("superpowers:finishing-a-development-branch")
+```
+
+User picks: merge, PR, keep, or discard. Worktree cleanup happens here.
+
+### Step 8: Return to Orchestrate
+
+Terminal states:
+- **merge/PR** → orchestrate proceeds to deliver
+- **keep** → orchestrate proceeds to deliver (branch preserved)
+- **discard** → orchestrate stops, epic tagged abandoned
+- **needs-attention** (from step 5/6) → orchestrate waits for user
+
+## Stall Detection
+
+Applies to all modes. The develop wrapper monitors bean state between execution turns.
+
+For superpowers modes (A, B): if the superpowers skill returns without completing all beans (session crash, context exhaustion), develop re-invokes the same skill. It picks up from bean state.
+
+For swarm mode (C): stall detection is part of the swarm orchestration loop (see `develop-swarm/SKILL.md`).
+
+For each `in-progress` bean:
+- Read `spawned-at:{epoch}` tag
+- If elapsed > `stall_timeout_min` minutes: check `stall-respawns:{N}` tag
+  - If N < `stall_max_respawns`: increment tag, respawn
+  - If N >= `stall_max_respawns`: tag `needs-attention`, stop automating this bean
+
+## Red Flags
+
+Negative constraints. Agents follow these more reliably than positive procedures.
+
+- **Never** dispatch an implementer without the full bean body
+- **Never** dispatch without injecting curated codebase context
+- **Never** ignore NEEDS_CONTEXT or BLOCKED — something must change before re-dispatch
+- **Never** skip review even if the implementer self-reviewed
+- **Never** force the same model to retry without changes — escalate model or split the bean
+- **Never** let review cycles exceed `max_review_cycles` without escalating to the user
+- **Never** invoke finishing-a-development-branch before holistic review passes
+- **Never** dispatch coupled beans in parallel — if two ready beans edit the same files, serialize them (swarm mode)
+- **Never** merge to integration without post-rebase verification passing (swarm mode)
+
+## Restart Resilience
+
+On session restart, develop re-derives state from beans and resumes — no session-scoped data to lose.
