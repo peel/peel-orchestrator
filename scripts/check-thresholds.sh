@@ -41,22 +41,33 @@ PASSING_DIMS=$(jq -c '
    {domain: $domain, dimension: .key, score: .value.score, threshold: .value.threshold}]
 ' "$SCORECARD")
 
+# Build flat map of "domain.dimension": score for convergence detection
+DIMENSIONS_MAP=$(jq -c '
+  [.domains | to_entries[] | .key as $domain |
+   .value.dimensions | to_entries[] |
+   {("\($domain).\(.key)"): .value.score}] | add // {}
+' "$SCORECARD")
+
 if [[ "$FAIL_DIM_COUNT" -eq 0 && "$FAIL_CRIT_COUNT" -eq 0 ]]; then
-  jq -n --argjson passing "$PASSING_DIMS" '{
+  jq -n --argjson passing "$PASSING_DIMS" \
+        --argjson dimensions "$DIMENSIONS_MAP" '{
     verdict: "PASS",
     failing_dimensions: [],
     failing_criteria: [],
-    passing_dimensions: $passing
+    passing_dimensions: $passing,
+    dimensions: $dimensions
   }'
   exit 0
 else
   jq -n --argjson failing_dims "$FAILING_DIMS" \
         --argjson failing_crit "$FAILING_CRITERIA" \
-        --argjson passing "$PASSING_DIMS" '{
+        --argjson passing "$PASSING_DIMS" \
+        --argjson dimensions "$DIMENSIONS_MAP" '{
     verdict: "FAIL",
     failing_dimensions: $failing_dims,
     failing_criteria: $failing_crit,
-    passing_dimensions: $passing
+    passing_dimensions: $passing,
+    dimensions: $dimensions
   }'
   exit 1
 fi

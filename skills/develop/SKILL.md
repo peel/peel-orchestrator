@@ -120,11 +120,11 @@ After receiving evaluator scorecards, you MUST run:
 Act on the scripts' verdicts. Do NOT compute thresholds or convergence yourself.
 </HARD-GATE>
 
-Run `check-thresholds.sh` first. It produces a verdict: `PASS` (exit 0) or `FAIL` (exit 1).
+Run `check-thresholds.sh` first. It produces a verdict: `PASS` (exit 0) or `FAIL` (exit 1). The output includes a `dimensions` flat map (`{"general.correctness": 8, ...}`) with all dimension scores. This output can be passed directly to `check-convergence.sh` as the `--current` file and appended to the history array for future convergence checks.
 
 ### 1g. Check Convergence
 
-Run `check-convergence.sh` with the current verdict, evaluation history, and dispatch budget.
+Run `check-convergence.sh` with the `--current` file (the check-thresholds.sh output, which includes the `dimensions` flat map), the `--history` file (a JSON array of prior check-thresholds.sh outputs), and dispatch budget.
 
 Possible outcomes:
 - **CONVERGED** (exit 0) — two consecutive passes with no regressions

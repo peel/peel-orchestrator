@@ -70,6 +70,9 @@ EXIT_CODE=0
 OUTPUT=$(cat "$OUTFILE")
 assert_exit "all pass → exit 0" 0 "$EXIT_CODE"
 assert_json "verdict is PASS" ".verdict" "PASS" "$OUTPUT"
+assert_json "dimensions has correctness" '.dimensions["general.correctness"]' "8" "$OUTPUT"
+assert_json "dimensions has domain_spec_fidelity" '.dimensions["general.domain_spec_fidelity"]' "9" "$OUTPUT"
+assert_json "dimensions has code_quality" '.dimensions["general.code_quality"]' "7" "$OUTPUT"
 
 echo "Test 2: One dimension below threshold"
 cat > "$TMPDIR/scorecard.json" << 'EOF'
@@ -93,6 +96,9 @@ OUTPUT=$(cat "$OUTFILE")
 assert_exit "one fail → exit 1" 1 "$EXIT_CODE"
 assert_json "verdict is FAIL" ".verdict" "FAIL" "$OUTPUT"
 assert_json "failing dim is correctness" ".failing_dimensions[0].dimension" "correctness" "$OUTPUT"
+assert_json "dimensions has correctness score" '.dimensions["general.correctness"]' "5" "$OUTPUT"
+assert_json "dimensions has domain_spec_fidelity score" '.dimensions["general.domain_spec_fidelity"]' "9" "$OUTPUT"
+assert_json "dimensions has code_quality score" '.dimensions["general.code_quality"]' "7" "$OUTPUT"
 
 echo "Test 3: Criterion fails"
 cat > "$TMPDIR/scorecard.json" << 'EOF'
@@ -118,6 +124,7 @@ EXIT_CODE=0
 OUTPUT=$(cat "$OUTFILE")
 assert_exit "criterion fail → exit 1" 1 "$EXIT_CODE"
 assert_json "verdict is FAIL" ".verdict" "FAIL" "$OUTPUT"
+assert_json "dimensions present on crit fail" '.dimensions["general.correctness"]' "8" "$OUTPUT"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
