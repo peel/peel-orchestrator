@@ -20,13 +20,15 @@
       "unattended": 90
     }
   },
-  "develop": {
-    "execution": "subagent",
-    "workers": 2,
-    "max_review_cycles": 3,
-    "max_impl_turns": 50,
-    "stall_timeout_min": 15,
-    "stall_max_respawns": 2
+  "evaluators": {
+    "attended": false,
+    "max_dispatches_per_task": 60,
+    "domains": {
+      "general": {
+        "template": "evaluator-general",
+        "providers": ["claude"]
+      }
+    }
   },
   "models": {},
   "plans": {}
