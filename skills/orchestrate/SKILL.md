@@ -25,8 +25,6 @@ Parse from `{ARGS}`:
 | `--skip-docs` | false | Passed through to discover phase — skip discover-docs |
 | `--skip-challenge` | false | Passed through to discover and define phases |
 | `--skip-panel` | false | Passed through to define phase |
-| `--workers <N>` | 2 | Passed through to develop phase |
-| `--max-review-cycles <N>` | 3 | Passed through to develop phase |
 
 Provider configuration lives in `orchestrate.json` only — no CLI overrides. Each phase reads its provider list from `providers.phases.<phase>`. Available providers are auto-detected at session start (see `hooks/session-start-check-providers.sh`).
 
@@ -193,8 +191,6 @@ Fall through to DEVELOP.
 
 Build args for the develop phase:
 - `--epic <epic-id>`
-- `--workers <workers>` (if overridden from defaults)
-- `--max-review-cycles <max-review-cycles>` (if overridden from defaults)
 
 Invoke:
 ```

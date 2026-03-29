@@ -4,20 +4,17 @@
 set -euo pipefail
 
 SCORECARD=""
-CONFIG=""
 CRITERIA=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scorecard) SCORECARD="$2"; shift 2;;
-    --config) CONFIG="$2"; shift 2;;
     --criteria) CRITERIA="$2"; shift 2;;
     *) echo "Unknown arg: $1" >&2; exit 2;;
   esac
 done
 
 [[ -f "$SCORECARD" ]] || { echo '{"error":"scorecard file not found"}'; exit 2; }
-[[ -f "$CONFIG" ]] || { echo '{"error":"config file not found"}'; exit 2; }
 [[ -f "$CRITERIA" ]] || { echo '{"error":"criteria file not found"}'; exit 2; }
 
 # Check dimensions against thresholds

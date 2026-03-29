@@ -38,7 +38,7 @@ Confirm it exists. Check child bean states — if beans are still `todo` or `in-
 
 ### Step 2: Drift Analysis
 
-If providers are configured (default: codex), read `../develop-swarm/roles/provider-dispatch.md` for collection rules. For each provider:
+If providers are configured (default: codex), read `hooks/dispatch-provider.sh` for collection rules. For each provider:
 
 ```bash
 # Write large content to temp files first

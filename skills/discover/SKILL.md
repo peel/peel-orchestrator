@@ -43,7 +43,7 @@ This reads existing docs, CLAUDE.md, beans, and relevant source files. It produc
 
 If providers are configured (default: codex):
 
-Read `../develop-swarm/roles/provider-dispatch.md` for collection rules. For each provider, dispatch via:
+Read `hooks/dispatch-provider.sh` for collection rules. For each provider, dispatch via:
 
 ```bash
 hooks/dispatch-provider.sh <provider> \

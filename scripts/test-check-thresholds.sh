@@ -26,25 +26,6 @@ assert_json() {
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
-# Minimal orchestrate.json with general domain defaults
-cat > "$TMPDIR/orchestrate.json" << 'EOF'
-{
-  "evaluators": {
-    "max_dispatches_per_task": 60,
-    "domains": {
-      "general": {
-        "template": "evaluator-general",
-        "thresholds": {
-          "correctness": 7,
-          "domain_spec_fidelity": 8,
-          "code_quality": 6
-        }
-      }
-    }
-  }
-}
-EOF
-
 echo "Test 1: All dimensions pass"
 cat > "$TMPDIR/scorecard.json" << 'EOF'
 {
@@ -66,7 +47,7 @@ EOF
 
 OUTFILE="$TMPDIR/out.json"
 EXIT_CODE=0
-"$SCRIPT_DIR/check-thresholds.sh" --scorecard "$TMPDIR/scorecard.json" --config "$TMPDIR/orchestrate.json" --criteria "$TMPDIR/criteria.json" > "$OUTFILE" 2>/dev/null || EXIT_CODE=$?
+"$SCRIPT_DIR/check-thresholds.sh" --scorecard "$TMPDIR/scorecard.json" --criteria "$TMPDIR/criteria.json" > "$OUTFILE" 2>/dev/null || EXIT_CODE=$?
 OUTPUT=$(cat "$OUTFILE")
 assert_exit "all pass → exit 0" 0 "$EXIT_CODE"
 assert_json "verdict is PASS" ".verdict" "PASS" "$OUTPUT"
@@ -91,7 +72,7 @@ cat > "$TMPDIR/scorecard.json" << 'EOF'
 EOF
 
 EXIT_CODE=0
-"$SCRIPT_DIR/check-thresholds.sh" --scorecard "$TMPDIR/scorecard.json" --config "$TMPDIR/orchestrate.json" --criteria "$TMPDIR/criteria.json" > "$OUTFILE" 2>/dev/null || EXIT_CODE=$?
+"$SCRIPT_DIR/check-thresholds.sh" --scorecard "$TMPDIR/scorecard.json" --criteria "$TMPDIR/criteria.json" > "$OUTFILE" 2>/dev/null || EXIT_CODE=$?
 OUTPUT=$(cat "$OUTFILE")
 assert_exit "one fail → exit 1" 1 "$EXIT_CODE"
 assert_json "verdict is FAIL" ".verdict" "FAIL" "$OUTPUT"
@@ -120,7 +101,7 @@ cat > "$TMPDIR/criteria.json" << 'EOF'
 EOF
 
 EXIT_CODE=0
-"$SCRIPT_DIR/check-thresholds.sh" --scorecard "$TMPDIR/scorecard.json" --config "$TMPDIR/orchestrate.json" --criteria "$TMPDIR/criteria.json" > "$OUTFILE" 2>/dev/null || EXIT_CODE=$?
+"$SCRIPT_DIR/check-thresholds.sh" --scorecard "$TMPDIR/scorecard.json" --criteria "$TMPDIR/criteria.json" > "$OUTFILE" 2>/dev/null || EXIT_CODE=$?
 OUTPUT=$(cat "$OUTFILE")
 assert_exit "criterion fail → exit 1" 1 "$EXIT_CODE"
 assert_json "verdict is FAIL" ".verdict" "FAIL" "$OUTPUT"

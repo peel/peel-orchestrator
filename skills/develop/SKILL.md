@@ -64,7 +64,7 @@ Resume based on script output. Do NOT guess state from memory or context.
 </HARD-GATE>
 
 **Interpreting restart state:**
-- `parse-eval-log.sh` returns `{base_sha, total_dispatches, last_iteration, last_verdict}`.
+- `parse-eval-log.sh` returns `{base_sha, total_dispatches, iteration_count, last_verdict, last_guidance}`.
 - `assess-git-state.sh` returns `{state: CLEAN|DIRTY|CORRUPTED}`.
   - **CLEAN:** Code is committed. Resume from evaluation (step 1e) if last verdict was not CONVERGED, or skip to next task if CONVERGED.
   - **DIRTY:** Uncommitted changes exist. Commit or stash them, then resume from evaluation.
@@ -85,11 +85,14 @@ Set `dispatch_count=0` and `iteration=0`.
 ### 1c. Dispatch Implementer
 
 Dispatch a subagent using the template at `skills/develop/implementer-prompt.md`. Fill placeholders:
-- `{BEAN_ID}` — the task bean ID
-- `{BEAN_BODY}` — full bean body (title, description, acceptance criteria)
-- `{CODEBASE_CONTEXT}` — relevant file paths, architecture notes
-- `{SCORECARD_FEEDBACK}` — previous evaluator scorecard (empty on first dispatch)
-- `{GUIDANCE}` — specific fix instructions from convergence analysis (empty on first dispatch)
+- `{ITERATION}` — iteration number (1 on first dispatch)
+- `{TASK_TEXT}` — full bean body (title, description, acceptance criteria)
+- `{CONTEXT}` — relevant file paths, architecture notes, codebase context
+- `{EVAL_BLOCK}` — the task's Evaluation block criteria
+- `{ANTIPATTERNS}` — known antipatterns to avoid (empty if none)
+- `{PRIOR_SCORECARD}` — previous evaluator scorecard (empty on first dispatch)
+- `{PRIOR_GUIDANCE}` — specific fix instructions from evaluator (empty on first dispatch)
+- `{WORK_DIR}` — worktree directory path
 
 Increment `dispatch_count` after each dispatch.
 
@@ -115,7 +118,7 @@ The evaluator returns a scorecard JSON with per-dimension scores.
 
 <HARD-GATE>
 After receiving evaluator scorecards, you MUST run:
-  scripts/check-thresholds.sh --scorecard {scorecard_file} --config orchestrate.json --criteria {criteria_file}
+  scripts/check-thresholds.sh --scorecard {scorecard_file} --criteria {criteria_file}
   scripts/check-convergence.sh --current {verdict_file} --history {history_file} --max-dispatches N --current-dispatches M
 Act on the scripts' verdicts. Do NOT compute thresholds or convergence yourself.
 </HARD-GATE>
