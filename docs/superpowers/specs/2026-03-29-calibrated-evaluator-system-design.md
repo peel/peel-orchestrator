@@ -1750,14 +1750,14 @@ Prove the implement → evaluate → converge loop works end-to-end with the sim
 - Foundational: `skills/evaluate/evaluator-general.md` — general domain template with full 1-10 scales
 - Foundational: `skills/develop/implementer-prompt.md` — implementer dispatch template
 - Orchestrating: `skills/develop/SKILL.md` — implement → evaluate → converge loop (single domain, single provider)
-- Core scripts: `check-thresholds.sh`, `check-convergence.sh`, `merge-scorecards.sh`, `append-eval-log.sh`, `parse-eval-log.sh`, `resolve-domains.sh`, `assess-git-state.sh`
+- Scripts: `check-thresholds.sh`, `check-convergence.sh`, `append-eval-log.sh`, `parse-eval-log.sh`, `assess-git-state.sh`
 - Scorecard JSON schema enforced
 - `orchestrate.json` evaluator config (single domain, single provider)
 - Session restart/recovery
 - Circuit breaker (`max_dispatches_per_task`)
 - Delete `patch-superpowers/`, `develop-swarm/`, swarm scripts
 
-**Does NOT include:** runtime verification, multi-provider, multi-domain, holistic review, calibration files, antipatterns.
+**Does NOT include:** runtime verification, multi-provider, multi-domain, holistic review, calibration files, antipatterns, `merge-scorecards.sh` (single provider = no merging), `resolve-domains.sh` (single domain = no resolution), `start-runtimes.sh`/`stop-runtimes.sh` (no runtime).
 
 **Test:** Run an attended evaluation cycle on a real task in `~/wrk/next` or `~/wrk/crops`. Verify: evaluator scores dimensions, thresholds are enforced by script, convergence works, restart recovers state, circuit breaker fires.
 
@@ -1769,53 +1769,45 @@ Add runtime evaluation — evaluators launch and interact with the running app.
 - Foundational: `skills/runtime-evidence/SKILL.md` — runtime evidence protocol
 - Foundational: `skills/evaluate/evaluator-frontend.md` — Flutter frontend domain template with full 1-10 scales
 - Foundational: `skills/evaluate/evaluator-backend.md` — Go API backend domain template with full 1-10 scales
-- `start-runtimes.sh`, `stop-runtimes.sh` with ready check contract
+- Scripts: `start-runtimes.sh`, `stop-runtimes.sh` with ready check contract
 - Harness failure vs app failure distinction (exit codes)
 - Example project-specific evaluator configs documented (Flutter/marionette, Go/go-dev-mcp, Wails/Svelte) — applied to target project repos, not committed to fiddle
 - runtime_agent and stack_agents defined as protocol elements in evaluate skill
 
 **Test:** Run an attended evaluation on a Flutter frontend task in `~/wrk/next`. Verify: evaluator launches app, takes screenshots via marionette MCP, scores visual quality based on actual rendered output, catches the kind of failures the City Visualization Redesign exhibited.
 
-### Milestone 3: Multi-Domain Evaluation
+### Milestone 3: Multi-Domain + Holistic Review
 
-Tasks that span frontend + backend get evaluated by both domain evaluators.
+Tasks spanning multiple domains get evaluated per-domain. Holistic review catches cross-task integration issues after all tasks complete.
 
 **Delivers:**
 - Multi-domain task handling in develop skill (domain resolution, runtime ordering)
+- Scripts: `resolve-domains.sh`
 - Domain-local spec fidelity (separate from holistic)
-- `resolve-domains.sh` updated for multi-domain
 - Cross-domain merge semantics
-- Plan Evaluation blocks with multiple domains
-
-**Test:** Run a full-stack task (API endpoint + UI integration) through the evaluator loop. Verify: both domains evaluated independently, both must pass, feedback identifies which domain failed.
-
-### Milestone 4: Holistic Review
-
-Cross-task quality check at configurable checkpoints.
-
-**Delivers:**
+- Plan Evaluation blocks with multiple domains and `runtime_order`
 - Foundational: `skills/develop/holistic-review.md` — holistic review protocol
 - Holistic dimensions with full 1-10 scales (integration, coherence, holistic spec fidelity, polish, runtime health)
 - Spec coverage matrix (every requirement → Full/Weak/Missing + evidence)
-- Remediation task generation from coverage gaps
-- Holistic review frequency configuration
+- Remediation bean generation from coverage gaps → back to per-task loop
 
-**Test:** Run a 5+ task plan. Verify: holistic reviewer launches app, produces coverage matrix, catches cross-task integration issues, generates remediation tasks for gaps.
+**Test:** Run a full-stack 5+ task plan (API + UI). Verify: both domains evaluated independently per task, holistic reviewer launches full app after all tasks, produces coverage matrix, catches cross-task integration issues, generates remediation beans for gaps, remediation tasks go through the evaluator loop.
 
-### Milestone 5: Multi-Provider Evaluation
+### Milestone 4: Multi-Provider Evaluation
 
 Multiple LLM providers evaluate each task for diversity of judgment.
 
 **Delivers:**
 - Per-domain provider selection in `orchestrate.json`
-- Multi-provider dispatch (parallel or flock-coordinated)
+- Multi-provider dispatch (parallel or coordinated via runtime command)
+- Scripts: `merge-scorecards.sh`
 - Scorecard merging across providers (minimum per dimension)
 - Provider disagreement surfacing
 - Updated circuit breaker accounting for dispatch multiplier
 
 **Test:** Run evaluation with Claude + Codex on a backend task. Verify: both produce scorecards, merge uses minimum, disagreements highlighted in attended mode.
 
-### Milestone 6: Calibration and Evolve
+### Milestone 5: Calibration and Evolve
 
 The compound learning loop.
 
