@@ -1,13 +1,13 @@
 ---
 # fiddle-aogq
 title: 'Task 7: Update orchestrate and config'
-status: todo
+status: completed
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T11:12:19Z
-updated_at: 2026-03-28T11:12:33Z
+updated_at: 2026-03-28T13:26:37Z
 parent: fiddle-p0do
 blocked_by:
     - fiddle-2809

@@ -1,12 +1,13 @@
 ---
 # fiddle-crh0
 title: 'Task 3: Move checklists and create lead-procedures'
-status: todo
+status: completed
 type: task
+priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T11:12:19Z
-updated_at: 2026-03-28T11:12:19Z
+updated_at: 2026-03-28T12:53:15Z
 parent: fiddle-p0do
 ---
 

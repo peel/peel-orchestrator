@@ -1,12 +1,13 @@
 ---
 # fiddle-oexq
 title: 'Task 5: Add superpowers patches'
-status: todo
+status: completed
 type: task
+priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T11:12:19Z
-updated_at: 2026-03-28T11:12:19Z
+updated_at: 2026-03-28T12:56:57Z
 parent: fiddle-p0do
 ---
 

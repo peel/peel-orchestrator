@@ -1,13 +1,13 @@
 ---
 # fiddle-2809
 title: 'Task 6: Rewrite develop/SKILL.md'
-status: todo
+status: completed
 type: task
 priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T11:12:19Z
-updated_at: 2026-03-28T11:12:33Z
+updated_at: 2026-03-28T13:16:10Z
 parent: fiddle-p0do
 blocked_by:
     - fiddle-tzb0

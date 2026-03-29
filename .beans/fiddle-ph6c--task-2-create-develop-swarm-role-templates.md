@@ -1,12 +1,13 @@
 ---
 # fiddle-ph6c
 title: 'Task 2: Create develop-swarm role templates'
-status: todo
+status: completed
 type: task
+priority: normal
 tags:
     - worktree
 created_at: 2026-03-28T11:12:19Z
-updated_at: 2026-03-28T11:12:19Z
+updated_at: 2026-03-28T12:49:59Z
 parent: fiddle-p0do
 ---
 

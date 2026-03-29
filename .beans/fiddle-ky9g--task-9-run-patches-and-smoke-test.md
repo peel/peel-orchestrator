@@ -1,10 +1,11 @@
 ---
 # fiddle-ky9g
 title: 'Task 9: Run patches and smoke test'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-28T11:17:14Z
-updated_at: 2026-03-28T11:17:14Z
+updated_at: 2026-03-28T15:06:19Z
 parent: fiddle-p0do
 blocked_by:
     - fiddle-28nz
