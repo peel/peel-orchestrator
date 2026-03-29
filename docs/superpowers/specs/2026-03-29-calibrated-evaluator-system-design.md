@@ -1382,14 +1382,14 @@ This design drops the superpowers plugin dependency. Fiddle becomes self-contain
 | `dispatching-parallel-agents` | **Drop.** Replaced by fiddle's team-based orchestration. |
 | `brainstorming` | **Fork and modify.** Add calibration anchor extraction from specs. Own directly — no more patching. |
 | `writing-plans` | **Fork and modify.** Add Evaluation blocks per task. Own directly — no more patching. |
-| `test-driven-development` | **Fork as-is.** Stable discipline primitive. Implementers still follow TDD. |
-| `verification-before-completion` | **Fork as-is.** Stable discipline primitive. Still applies to implementers. |
-| `systematic-debugging` | **Fork as-is.** Stable discipline primitive. |
-| `using-git-worktrees` | **Fork as-is.** Still used for isolation. |
-| `finishing-a-development-branch` | **Fork as-is.** Still used at end of develop. |
-| `receiving-code-review` | **Fork as-is.** Still useful for human reviews. |
-| `writing-skills` | **Fork as-is.** Meta skill for creating new skills. |
-| `using-superpowers` | **Replace.** Becomes fiddle's own skill discovery mechanism. |
+| `test-driven-development` | **Fork as-is.** Implementers follow TDD. |
+| `verification-before-completion` | **Fork as-is.** Evidence before claims. |
+| `systematic-debugging` | **Fork as-is.** Used when implementer is stuck. |
+| `using-git-worktrees` | **Fork as-is.** Feature branch isolation. |
+| `finishing-a-development-branch` | **Fork as-is.** Branch completion after develop. |
+| `receiving-code-review` | **Drop.** Not part of the evaluator loop. |
+| `writing-skills` | **Drop.** Not essential for fiddle's runtime. |
+| `using-superpowers` | **Drop.** Fiddle has its own skill discovery via orchestrate. |
 
 **Post-migration:** Delete `skills/patch-superpowers/` — no longer needed. Periodically review superpowers upstream for ideas to import (as we did with this design), but no runtime dependency.
 
@@ -1456,13 +1456,13 @@ Agents ignore large skills. Keeping foundational skills small (~100-200 lines) e
 
 | File | Purpose |
 |---|---|
-| `skills/tdd/SKILL.md` | Test-driven development |
-| `skills/verify/SKILL.md` | Verification before completion |
-| `skills/debug/SKILL.md` | Systematic debugging |
-| `skills/worktrees/SKILL.md` | Git worktree management |
-| `skills/finish-branch/SKILL.md` | Branch completion options |
-| `skills/receive-review/SKILL.md` | Handling review feedback |
-| `skills/write-skill/SKILL.md` | Creating new skills |
+| `skills/tdd/SKILL.md` | Test-driven development — implementers follow TDD |
+| `skills/verify/SKILL.md` | Verification before completion — evidence before claims |
+| `skills/debug/SKILL.md` | Systematic debugging — used when implementer is stuck |
+| `skills/worktrees/SKILL.md` | Git worktree management — feature branch isolation |
+| `skills/finish-branch/SKILL.md` | Branch completion options — after develop finishes |
+
+Not forked (not essential for fiddle): `write-skill`, `receive-review`, `using-superpowers`, `dispatching-parallel-agents`.
 
 **Orchestrating — forked and modified from superpowers:**
 
