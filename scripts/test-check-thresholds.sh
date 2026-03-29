@@ -35,10 +35,10 @@ cat > "$TMPDIR/scorecard.json" << 'EOF'
         "correctness": {"score": 8, "threshold": 7},
         "domain_spec_fidelity": {"score": 9, "threshold": 8},
         "code_quality": {"score": 7, "threshold": 6}
-      },
-      "criteria": [{"id": "test-crit", "pass": true}]
+      }
     }
-  }
+  },
+  "criteria": [{"id": "test-crit", "pass": true}]
 }
 EOF
 cat > "$TMPDIR/criteria.json" << 'EOF'
@@ -64,10 +64,10 @@ cat > "$TMPDIR/scorecard.json" << 'EOF'
         "correctness": {"score": 5, "threshold": 7},
         "domain_spec_fidelity": {"score": 9, "threshold": 8},
         "code_quality": {"score": 7, "threshold": 6}
-      },
-      "criteria": [{"id": "test-crit", "pass": true}]
+      }
     }
-  }
+  },
+  "criteria": [{"id": "test-crit", "pass": true}]
 }
 EOF
 
@@ -90,10 +90,10 @@ cat > "$TMPDIR/scorecard.json" << 'EOF'
         "correctness": {"score": 8, "threshold": 7},
         "domain_spec_fidelity": {"score": 9, "threshold": 8},
         "code_quality": {"score": 7, "threshold": 6}
-      },
-      "criteria": [{"id": "test-crit", "pass": false}]
+      }
     }
-  }
+  },
+  "criteria": [{"id": "test-crit", "pass": false}]
 }
 EOF
 cat > "$TMPDIR/criteria.json" << 'EOF'

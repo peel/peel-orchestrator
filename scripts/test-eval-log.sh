@@ -23,7 +23,7 @@ echo "$BODY" | grep -q "BASE_SHA: abc1234" && assert_eq "base_sha in body" "yes"
 
 echo "Test 2: Append iteration"
 cat > /tmp/test-scorecard.json << 'EOF'
-{"domains":{"general":{"dimensions":{"correctness":{"score":7,"threshold":7}},"criteria":[]}},"verdict":"PASS"}
+{"domains":{"general":{"dimensions":{"correctness":{"score":7,"threshold":7}}}},"criteria":[]}
 EOF
 "$SCRIPT_DIR/append-eval-log.sh" --bean-id "$BEAN_ID" --iteration 1 --scorecard /tmp/test-scorecard.json --dispatches 1 --guidance "Looks good"
 BODY=$(beans show "$BEAN_ID" --json 2>/dev/null | jq -r '.body')
@@ -38,7 +38,7 @@ assert_eq "total_dispatches" "1" "$(echo "$OUTPUT" | jq -r '.total_dispatches')"
 
 echo "Test 4: Append second iteration with FAIL"
 cat > /tmp/test-scorecard2.json << 'EOF'
-{"domains":{"general":{"dimensions":{"correctness":{"score":5,"threshold":7}},"criteria":[]}},"verdict":"FAIL"}
+{"domains":{"general":{"dimensions":{"correctness":{"score":5,"threshold":7}}}},"criteria":[]}
 EOF
 "$SCRIPT_DIR/append-eval-log.sh" --bean-id "$BEAN_ID" --iteration 2 --scorecard /tmp/test-scorecard2.json --dispatches 2 --guidance "Needs improvement"
 OUTPUT=$("$SCRIPT_DIR/parse-eval-log.sh" --bean-id "$BEAN_ID")
