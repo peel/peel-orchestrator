@@ -287,7 +287,7 @@ Projects customize via `orchestrate.json`:
 
 - Which domain evaluator to use
 - Runtime commands for evaluation
-- References to project-specific agents (playwright-expert, flutter-expert, etc.)
+- References to project-specific agents (flutter-expert, rest-expert, go-expert, etc.)
 - Extra dimensions beyond the base set
 - Custom thresholds
 - Project-specific calibration file with concrete anchors for this app
@@ -917,37 +917,25 @@ Runtime verification requires evaluators to interact with the running applicatio
 
 #### Protocol Elements
 
-**`runtime_agent`** — A project-specific agent definition (`.claude/agents/<name>.md` or equivalent) that knows how to interact with the running app for a specific stack. The evaluator delegates runtime interaction to this agent. It is a protocol participant, not just a config noun.
+**Runtime evaluation is tool-agnostic.** The evaluator uses whatever tools the project has available — project MCP servers, Bash commands, curl, project-specific agents. Fiddle does not prescribe or depend on any specific runtime tool (no Playwright dependency, no browser automation requirement).
 
-The runtime agent MUST support these operations:
-- **launch**: Start the application using the runtime command
-- **ready_check**: Verify the app is ready for interaction (not just port open — DOM loaded, API responding, assets loaded)
-- **capture_screenshot**: Take a screenshot at a specific viewport size and state
-- **interact**: Click, type, navigate — exercise the application as a user would
-- **capture_evidence**: Collect console logs, network errors, performance metrics
-- **teardown**: Stop the application cleanly
+**How the evaluator interacts with the running app:**
 
-The evaluator dispatches the runtime agent as a subagent. The agent returns structured evidence:
+The orchestrator starts the app via `start-runtimes.sh`. The evaluator (a team member with full session access) then uses the project's available tools to verify the running app:
 
-```json
-{
-  "screenshots": [
-    { "description": "City map default view", "viewport": "1280x720", "path": "/tmp/eval-evidence/screenshot-01.png" },
-    { "description": "Zoomed to district", "viewport": "1280x720", "path": "/tmp/eval-evidence/screenshot-02.png" }
-  ],
-  "interactions": [
-    { "action": "click district 'Arts Quarter'", "result": "Zoom animation played, district centered" },
-    { "action": "pinch zoom to 0.5x", "result": "All districts visible, central park centered" }
-  ],
-  "console_errors": [],
-  "network_errors": [],
-  "ready_time_ms": 3200
-}
-```
+- **Frontend (Flutter web):** `marionette` MCP for widget interaction and screenshots, `flutter test integration_test/` for integration tests
+- **API (Go):** `curl` / `httpie` for HTTP requests, `go-dev-mcp` for Go-specific tooling, direct database queries if needed
+- **Desktop (Wails/Svelte):** `curl` for the dev server, Playwright MCP if richer browser interaction needed
 
-**`stack_agents`** — Project-specific agent definitions that provide stack expertise to the evaluator. Unlike `runtime_agent` (which interacts with the app), stack agents provide contextual knowledge. The evaluator may consult them for stack-specific quality signals.
+The domain template (`evaluator-frontend.md`, `evaluator-backend.md`) describes WHAT to verify. The evaluator figures out HOW using available tools. This is judgment work — exactly what the evaluator is for.
 
-Stack agents are advisory — the evaluator includes their perspective when scoring but they do not produce scores themselves. They are loaded into the evaluator's context as reference material, not dispatched as subagents.
+**`runtime_agent`** (optional) — A project-specific agent definition (`.claude/agents/<name>.md`) that provides stack-specific runtime interaction expertise. If configured, the evaluator's prompt includes this agent's knowledge for guidance on how to interact with the specific stack. This is reference material loaded into the evaluator's context, not a separate dispatched agent.
+
+If `runtime_agent` is not configured, the evaluator uses its own judgment about how to interact with the running app using available tools.
+
+**`stack_agents`** (optional) — Additional project-specific agent definitions that provide domain expertise. Loaded into the evaluator's context as reference material. The evaluator may consult their guidance when scoring.
+
+Both `runtime_agent` and `stack_agents` are **context enrichment for the evaluator prompt**, not separate actors in the system.
 
 #### Ready Check Contract
 
@@ -973,23 +961,25 @@ Supported check types:
 
 If no `ready_check` specified, falls back to `tcp` on the port parsed from the runtime command.
 
-#### Shipped Evaluator Configurations
+#### Default and Project-Specific Configurations
 
-Fiddle ships with evaluator configurations for specific stacks, directly usable in target projects:
+Fiddle ships a minimal default evaluator config that works with no project-specific setup (evaluator-general, no runtime, `curl`-based verification). Projects configure their own evaluators in their `orchestrate.json` using whatever tools they have available.
+
+Below are examples of project-specific configs (these live in the target project repos, not in fiddle):
 
 **Flutter Web** (for `~/wrk/next`):
 
 ```json
 {
   "template": "evaluator-frontend",
-  "runtime": ["flutter run -d chrome --web-port=8080"],
-  "runtime_agent": "playwright-expert",
-  "stack_agents": ["flutter-expert", "dart-expert"],
+  "runtime": ["cd app && flutter run -d chrome --web-port=8080"],
+  "runtime_agent": "flutter-expert",
+  "stack_agents": ["dart-expert"],
   "ready_check": { "type": "http", "url": "http://localhost:8080", "timeout_ms": 60000 }
 }
 ```
 
-Runtime agent (`playwright-expert`) uses Playwright MCP to take screenshots, click elements, navigate. Must have `@anthropic/mcp-playwright` or equivalent configured in project's `.mcp.json`.
+Evaluator uses `marionette` MCP (already configured in project's `.mcp.json`) to interact with the running Flutter app — navigate widgets, take screenshots, inspect state. The `flutter-expert` agent provides stack-specific guidance in the evaluator's context.
 
 **Wails/Svelte** (for `~/wrk/crops`):
 
@@ -997,13 +987,14 @@ Runtime agent (`playwright-expert`) uses Playwright MCP to take screenshots, cli
 {
   "template": "evaluator-frontend",
   "runtime": ["cd frontend && npm run dev -- --port 5173"],
-  "runtime_agent": "playwright-expert",
   "stack_agents": ["svelte-expert"],
   "ready_check": { "type": "http", "url": "http://localhost:5173", "timeout_ms": 30000 }
 }
 ```
 
-**Go API** (for `~/wrk/next` and `~/wrk/crops` backends):
+Svelte dev server can be verified via `curl` and standard HTTP tools. Could also configure Playwright MCP if richer browser interaction is needed for frontend evaluation.
+
+**Go API** (for `~/wrk/next`, `~/wrk/crops`, `~/wrk/sp-shared/identity/icecube`):
 
 ```json
 {
@@ -1015,7 +1006,7 @@ Runtime agent (`playwright-expert`) uses Playwright MCP to take screenshots, cli
 }
 ```
 
-Runtime agent (`rest-expert`) makes HTTP requests, checks response shapes, status codes, headers. Uses curl/httpie or MCP HTTP tools.
+Evaluator uses `curl`/`httpie` for HTTP verification, `go-dev-mcp` where available. The `rest-expert` and `go-expert` agent definitions provide context.
 
 #### Distinguishing App Failure from Harness Failure
 
@@ -1220,7 +1211,7 @@ Output: Full config per domain JSON on stdout
         [{"domain":"frontend",
           "template":"evaluator-frontend",
           "runtime":["flock ..."],
-          "runtime_agent":"playwright-expert",
+          "runtime_agent":"flutter-expert",
           "calibration":"docs/evaluator-calibration-frontend.md",
           "antipatterns":"docs/antipatterns-frontend.md",
           "thresholds":{"visual_quality":7,"craft":7,...},
@@ -1432,7 +1423,7 @@ Agents ignore large skills. Keeping foundational skills small (~100-200 lines) e
 
 | File | Purpose | Loaded by |
 |---|---|---|
-| `skills/runtime-evidence/SKILL.md` | Runtime evidence protocol: launch app, ready check, screenshot capture, interaction protocol, evidence JSON format, harness vs app failure distinction. | Runtime agent (playwright-expert, rest-expert, etc.) |
+| `skills/runtime-evidence/SKILL.md` | Runtime evidence protocol: how to interact with a running app, what evidence to capture, evidence format. Guidance for evaluators doing runtime verification. | Evaluator team member (loaded as context alongside domain template) |
 
 **Foundational — implementer role** (read by implementer subagents):
 
@@ -1521,7 +1512,7 @@ The current develop phase has three execution modes (subagent-driven, sequential
         "template": "evaluator-frontend",
         "providers": ["claude"],
         "runtime": ["flock /tmp/eval-flutter.lock flutter run -d chrome --web-port=8080"],
-        "runtime_agent": "playwright-expert",
+        "runtime_agent": "flutter-expert",
         "stack_agents": ["flutter-expert", "dart-expert"],
         "ready_check": { "type": "http", "url": "http://localhost:8080", "timeout_ms": 60000 },
         "calibration": "docs/evaluator-calibration-frontend.md",
@@ -1559,7 +1550,7 @@ The current develop phase has three execution modes (subagent-driven, sequential
       "providers": ["claude", "codex"],
       "max_iterations": 3,
       "runtime": ["flock /tmp/eval-flutter.lock flutter run -d chrome --web-port=8080"],
-      "runtime_agent": "playwright-expert",
+      "runtime_agent": "flutter-expert",
       "design_reference": "docs/DESIGN_SYSTEM.md",
       "dimensions": {
         "integration": { "threshold": 7 },
@@ -1719,7 +1710,7 @@ Add runtime evaluation — evaluators launch and interact with the running app.
 - Foundational: `skills/evaluate/evaluator-backend.md` — Go API backend domain template with full 1-10 scales
 - `start-runtimes.sh`, `stop-runtimes.sh` with ready check contract
 - Harness failure vs app failure distinction (exit codes)
-- Shipped evaluator configs: Flutter Web (for `~/wrk/next`), Go API (for `~/wrk/next` and `~/wrk/crops`), Wails/Svelte (for `~/wrk/crops`)
+- Example project-specific evaluator configs documented (Flutter/marionette, Go/go-dev-mcp, Wails/Svelte) — applied to target project repos, not committed to fiddle
 - runtime_agent and stack_agents defined as protocol elements in evaluate skill
 
 **Test:** Run an attended evaluation on a Flutter frontend task in `~/wrk/next`. Verify: evaluator launches app, takes screenshots via Playwright MCP, scores visual quality based on actual rendered output, catches the kind of failures the City Visualization Redesign exhibited.
