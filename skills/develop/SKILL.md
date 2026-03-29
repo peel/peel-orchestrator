@@ -112,7 +112,17 @@ Provide:
 - The bean's acceptance criteria
 - The domain template's scoring dimensions
 
-The evaluator returns a scorecard JSON with per-dimension scores.
+The evaluator returns a single scorecard JSON containing both per-dimension scores (under `.domains`) and pass/fail criteria (under `.criteria`). Before running threshold checks, save and split the output:
+
+```bash
+# Save the full scorecard (used by --scorecard)
+cat > scorecard.json   # ← full evaluator output
+
+# Extract criteria array into a separate file (used by --criteria)
+jq '.criteria' scorecard.json > criteria.json
+```
+
+Both files are then passed to `check-thresholds.sh` in step 1f.
 
 ### 1f. Check Thresholds
 
