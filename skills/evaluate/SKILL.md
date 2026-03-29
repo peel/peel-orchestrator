@@ -71,22 +71,25 @@ Return EXACTLY this JSON structure to stdout. No markdown fences, no commentary 
   "iteration": 1,
   "timestamp": "ISO-8601",
   "provider": "your-provider-name",
-  "domain": "general",
-  "dimensions": {
-    "correctness": {
-      "score": 7,
-      "evidence": "Specific evidence...",
-      "threshold": 7
-    },
-    "domain_spec_fidelity": {
-      "score": 8,
-      "evidence": "Specific evidence...",
-      "threshold": 8
-    },
-    "code_quality": {
-      "score": 6,
-      "evidence": "Specific evidence...",
-      "threshold": 6
+  "domains": {
+    "general": {
+      "dimensions": {
+        "correctness": {
+          "score": 7,
+          "evidence": "Specific evidence...",
+          "threshold": 7
+        },
+        "domain_spec_fidelity": {
+          "score": 8,
+          "evidence": "Specific evidence...",
+          "threshold": 8
+        },
+        "code_quality": {
+          "score": 6,
+          "evidence": "Specific evidence...",
+          "threshold": 6
+        }
+      }
     }
   },
   "criteria": [
@@ -100,7 +103,8 @@ Return EXACTLY this JSON structure to stdout. No markdown fences, no commentary 
 
 ### Schema Rules
 
-- `dimensions` keys: snake_case, must match domain template dimension names exactly
+- `domains`: object keyed by domain name (e.g., "general", "frontend", "backend") — must match the domain template used
+- `domains.<domain>.dimensions` keys: snake_case, must match domain template dimension names exactly
 - `score`: integer 1-10, no decimals, no nulls
 - `evidence`: required string for every dimension — empty string is a schema violation
 - `criteria[].id`: must match the task's Evaluation block criterion `id` exactly
@@ -108,7 +112,6 @@ Return EXACTLY this JSON structure to stdout. No markdown fences, no commentary 
 - `antipatterns_detected`: array (empty if none found)
 - `guidance`: actionable fix instructions when any dimension is below threshold; empty string if all pass
 - `dispatch_count`: always 1 (the orchestrator tracks cumulative dispatches)
-- `domain`: must match the domain template used (e.g., "general", "frontend", "backend")
 
 ## Evaluation Procedure
 
