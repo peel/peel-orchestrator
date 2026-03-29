@@ -835,6 +835,266 @@ Implementer model selection follows existing superpowers guidance (least powerfu
 
 ---
 
+## Enforcement Model
+
+Two enforcement mechanisms, chosen by the nature of the operation:
+
+**Deterministic operations → bash scripts.** Agents MUST call the script. They MUST NOT attempt the logic themselves. The script's exit code and stdout are the source of truth — agents act on the output, not on their own reasoning about what the output should be.
+
+**Process flow → HARD-GATE blocks in skill definitions.** Skills use the same enforcement patterns that superpowers established: `<HARD-GATE>` blocks that halt progress until a condition is met, Red Flags sections listing rationalizations to watch for, and explicit "violating the letter is violating the spirit" language.
+
+### Scripts (deterministic, no LLM interpretation)
+
+All scripts live in `scripts/`. They accept JSON/structured input and produce JSON/structured output. Exit codes: 0 = success, 1 = failure, 2 = invalid input.
+
+#### `merge-scorecards.sh`
+
+Merge multiple scorecards into one. Minimum score per dimension wins.
+
+```
+Input:  JSON array of scorecards on stdin
+        [{"domain":"frontend","provider":"claude","scores":{"visual_quality":7,"craft":5}},
+         {"domain":"frontend","provider":"codex","scores":{"visual_quality":6,"craft":7}}]
+
+Output: Merged scorecard JSON on stdout
+        {"frontend":{"visual_quality":6,"craft":5},"backend":{...}}
+
+Also:   Disagreements (score differs by 3+ between providers) on stderr
+        DISAGREEMENT frontend.visual_quality: claude=7 codex=4
+```
+
+#### `check-thresholds.sh`
+
+Compare merged scorecard against threshold config. Returns verdict.
+
+```
+Input:  --scorecard <merged-scorecard.json>
+        --config <orchestrate.json>
+        --criteria <task-criteria-results.json>  (binary pass/fail per criterion)
+
+Output: Verdict JSON on stdout
+        {"verdict":"FAIL",
+         "failing_dimensions":[{"domain":"frontend","dimension":"craft","score":5,"threshold":7}],
+         "failing_criteria":["Loading state not shown while fetching"],
+         "passing_dimensions":[...]}
+
+Exit:   0 = all pass, 1 = at least one fail
+```
+
+#### `check-convergence.sh`
+
+Determine if evaluation has converged based on current + prior results.
+
+```
+Input:  --current <current-verdict.json>
+        --history <eval-history.json>   (all prior verdicts)
+        --max-iterations 15
+
+Output: Convergence verdict on stdout
+        {"status":"CONVERGED"}          two consecutive passes
+        {"status":"PASS_PENDING"}       first pass, need confirmation
+        {"status":"FAIL","iteration":3} below threshold
+        {"status":"ESCALATE","iteration":15,"reason":"max iterations reached"}
+
+Exit:   0 = CONVERGED, 1 = FAIL/PASS_PENDING, 2 = ESCALATE
+```
+
+#### `parse-eval-log.sh`
+
+Extract evaluation state from a bean's body for restart.
+
+```
+Input:  --bean-id <id>
+        (reads bean via `beans show`)
+
+Output: Evaluation state JSON on stdout
+        {"base_sha":"a7981ec",
+         "iteration_count":2,
+         "scorecards":[...],
+         "last_verdict":"FAIL",
+         "last_guidance":"Sprites load but zone radius doesn't grow..."}
+
+Exit:   0 = log found and parsed, 1 = no evaluation log on bean
+```
+
+#### `append-eval-log.sh`
+
+Append an iteration entry to a bean's Evaluation Log.
+
+```
+Input:  --bean-id <id>
+        --iteration <N>
+        --scorecard <scorecard.json>
+        --verdict <verdict.json>
+        --guidance "free text guidance from evaluator"
+
+Effect: Appends formatted markdown entry to bean body via `beans update`
+        ### Iteration N (timestamp)
+        **frontend:**
+        - Visual quality: 7/10
+        ...
+
+Exit:   0 = appended, 1 = bean not found
+```
+
+#### `resolve-domains.sh`
+
+Resolve a task's domain list to full evaluator config.
+
+```
+Input:  --domains "frontend,backend"
+        --config <orchestrate.json>
+
+Output: Full config per domain JSON on stdout
+        [{"domain":"frontend",
+          "template":"evaluator-frontend",
+          "runtime":["flock ..."],
+          "runtime_agent":"playwright-expert",
+          "calibration":"docs/evaluator-calibration-frontend.md",
+          "antipatterns":"docs/antipatterns-frontend.md",
+          "thresholds":{"visual_quality":7,"craft":7,...},
+          "stack_agents":["flutter-expert"]},
+         {"domain":"backend",...}]
+
+Exit:   0 = all domains resolved, 1 = unknown domain (falls back to general)
+```
+
+#### `start-runtimes.sh`
+
+Start runtime processes for evaluation. Handles dependency ordering (backends before frontends).
+
+```
+Input:  --domains <resolved-domains.json>
+        --slot-index <N>  (which runtime slot to use, for parallel)
+
+Output: Runtime state JSON on stdout
+        [{"domain":"backend","pid":12345,"port":8080,"command":"..."},
+         {"domain":"frontend","pid":12346,"port":8081,"command":"..."}]
+
+Effect: Starts processes in background.
+        Waits for each to be ready (polls health endpoint or port).
+        Backend started and ready before frontend starts.
+
+Exit:   0 = all runtimes started, 1 = startup failed (includes stderr details)
+```
+
+#### `stop-runtimes.sh`
+
+Stop runtime processes started by start-runtimes.sh.
+
+```
+Input:  --state <runtime-state.json>  (output from start-runtimes.sh)
+
+Effect: Sends SIGTERM to each PID. Waits for clean shutdown.
+        Falls back to SIGKILL after 10s.
+
+Exit:   0 = all stopped
+```
+
+#### `assess-git-state.sh`
+
+Determine git state relative to a base commit for restart.
+
+```
+Input:  --base-sha <sha>
+
+Output: State assessment on stdout
+        {"state":"CLEAN","head_sha":"b1234ef","commits_ahead":3}
+        {"state":"DIRTY","uncommitted_files":["app/lib/city.dart"]}
+        {"state":"CORRUPTED","reason":"merge conflict in app/lib/city.dart"}
+
+Exit:   0 = CLEAN, 1 = DIRTY, 2 = CORRUPTED
+```
+
+### HARD-GATE Enforcement Points (in skill definitions)
+
+These are the points where skill definitions MUST use `<HARD-GATE>` blocks to force compliance. The agent cannot proceed past a HARD-GATE until its condition is met.
+
+#### In `skills/develop/SKILL.md`:
+
+```markdown
+<HARD-GATE>
+Before dispatching any evaluator, you MUST run:
+  resolve-domains.sh --domains "{task domains}" --config orchestrate.json
+Use the script's output to configure evaluators. Do NOT resolve domains manually.
+</HARD-GATE>
+
+<HARD-GATE>
+After receiving evaluator scorecards, you MUST run:
+  merge-scorecards.sh < scorecards.json
+  check-thresholds.sh --scorecard merged.json --config orchestrate.json --criteria criteria.json
+  check-convergence.sh --current verdict.json --history history.json --max-iterations 15
+Act on the scripts' verdicts. Do NOT compute merges, thresholds, or convergence yourself.
+</HARD-GATE>
+
+<HARD-GATE>
+After every evaluation cycle, you MUST run:
+  append-eval-log.sh --bean-id {id} --iteration {N} --scorecard ... --verdict ...
+Do NOT skip logging. Do NOT write the log entry manually.
+</HARD-GATE>
+
+<HARD-GATE>
+If check-convergence.sh returns ESCALATE (exit 2), you MUST stop and ask the human.
+Do NOT continue iterating. Do NOT lower thresholds. Do NOT rationalize.
+</HARD-GATE>
+
+<HARD-GATE>
+If a domain has runtime configured, you MUST run:
+  start-runtimes.sh --domains resolved.json --slot-index {N}
+before dispatching evaluators for that domain.
+After evaluation completes:
+  stop-runtimes.sh --state runtime-state.json
+Do NOT skip runtime. Do NOT let evaluators assess without runtime evidence.
+</HARD-GATE>
+
+<HARD-GATE>
+On session restart, you MUST run:
+  parse-eval-log.sh --bean-id {id}
+  assess-git-state.sh --base-sha {sha}
+Resume based on script output. Do NOT guess state from memory or context.
+</HARD-GATE>
+```
+
+#### In `skills/evaluate/SKILL.md` (evaluator protocol):
+
+```markdown
+<HARD-GATE>
+You are an evaluator. You MUST score every dimension on the 1-10 scale.
+You MUST NOT skip any dimension. You MUST NOT give a dimension a passing
+score without evidence. "Looks fine" is not evidence.
+</HARD-GATE>
+
+<HARD-GATE>
+If runtime is configured for your domain, you MUST launch the application
+and interact with it before scoring. Screenshots, clicks, API calls —
+actual runtime evidence. Code review alone is NOT sufficient for any
+dimension when runtime is available.
+</HARD-GATE>
+```
+
+### What agents do vs what scripts do
+
+| Operation | Who | Why |
+|---|---|---|
+| Score dimensions 1-10 | Agent (evaluator) | Requires judgment |
+| Write improvement guidance | Agent (evaluator) | Requires judgment |
+| Merge scorecards | Script | Arithmetic — `min()` |
+| Check thresholds | Script | Comparison — `score >= threshold` |
+| Check convergence | Script | State machine — consecutive passes |
+| Parse evaluation log | Script | Structured text parsing |
+| Append evaluation log | Script | Consistent formatting |
+| Resolve domain config | Script | JSON lookup |
+| Start/stop runtimes | Script | Process management |
+| Assess git state | Script | Git commands + state classification |
+| Decide what to implement | Agent (implementer) | Requires judgment |
+| Decide what feedback to give | Agent (orchestrator) | Requires judgment |
+| Format feedback for implementer | Agent (orchestrator) | Requires judgment |
+| Interact with running app | Agent (evaluator) | Requires judgment |
+| Write calibration anchors | Human + agent | Requires taste |
+| Write antipatterns | Human + agent | Requires experience |
+
+---
+
 ## Dependency Change: Drop Superpowers
 
 This design drops the superpowers plugin dependency. Fiddle becomes self-contained.
@@ -868,11 +1128,27 @@ This design drops the superpowers plugin dependency. Fiddle becomes self-contain
 
 ### New Files in Fiddle
 
+**Scripts** (`scripts/`):
+
+| File | Purpose |
+|---|---|
+| `scripts/merge-scorecards.sh` | Merge multiple scorecards — minimum per dimension |
+| `scripts/check-thresholds.sh` | Compare merged scorecard against threshold config |
+| `scripts/check-convergence.sh` | Determine if evaluation has converged |
+| `scripts/parse-eval-log.sh` | Extract evaluation state from bean body for restart |
+| `scripts/append-eval-log.sh` | Append iteration entry to bean's Evaluation Log |
+| `scripts/resolve-domains.sh` | Resolve task's domain list to full evaluator config |
+| `scripts/start-runtimes.sh` | Start runtime processes in dependency order |
+| `scripts/stop-runtimes.sh` | Stop runtime processes |
+| `scripts/assess-git-state.sh` | Classify git state as CLEAN/DIRTY/CORRUPTED |
+
+**Skills** (`skills/`):
+
 | File | Purpose |
 |---|---|
 | `skills/evaluate/SKILL.md` | Evaluation protocol — scoring, thresholds, iteration, convergence rules |
-| `skills/evaluate/evaluator-frontend.md` | Frontend domain template — dimensions, generic calibration anchors |
-| `skills/evaluate/evaluator-backend.md` | Backend domain template |
+| `skills/evaluate/evaluator-frontend.md` | Frontend domain template — full 1-10 scales, generic calibration anchors |
+| `skills/evaluate/evaluator-backend.md` | Backend domain template — full 1-10 scales, generic calibration anchors |
 | `skills/evaluate/evaluator-general.md` | Fallback domain template |
 | `skills/evaluate/runtime-evidence.md` | Instructions for runtime verification (launching app, screenshots, interaction) |
 | `skills/brainstorm/SKILL.md` | Forked from superpowers + calibration anchor extraction |
