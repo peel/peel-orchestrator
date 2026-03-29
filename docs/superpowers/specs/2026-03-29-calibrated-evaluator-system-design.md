@@ -1078,17 +1078,24 @@ A task touching both frontend and backend = 3 dispatches per iteration (1 + 2). 
 
 ---
 
-### Locking Portability
+### Runtime Command and Locking
 
-The spec's runtime coordination examples use `flock` for serialized access. `flock` is Linux-native and not available on macOS by default.
+The `runtime` field in `orchestrate.json` is an opaque command array. Fiddle passes these commands through to `start-runtimes.sh` without interpretation. Locking, port selection, and resource coordination are the **user's responsibility** — they encode their coordination strategy directly in the command.
 
-**Solution:** Install `flock` via Nix in the development environment. Add `util-linux` to:
-- `~/wrk/fiddle/flake.nix` (fiddle's own dev shell)
-- `~/wrk/ai-devtools/flake.nix` (shared across all Claude/Codex-enabled environments)
+Fiddle documents common patterns as guidance:
 
-This ensures `flock` is available wherever fiddle's evaluator system runs. Projects that use fiddle inherit the dependency through `ai-devtools`.
+```bash
+# Serialized access via flock (Linux, or macOS with util-linux installed)
+"runtime": ["flock /tmp/eval-flutter.lock flutter run -d chrome --web-port=8080"]
 
-Alternative for environments without Nix: `scripts/lock.sh` wrapper that uses `flock` if available, falls back to `mkdir`-based locking.
+# Parallel slots via separate ports
+"runtime": ["flutter run -d chrome --web-port=8080", "flutter run -d chrome --web-port=8081"]
+
+# No locking (single provider, no contention)
+"runtime": ["flutter run -d chrome --web-port=8080"]
+```
+
+Fiddle does NOT depend on `flock` or any specific locking mechanism. The runtime command is whatever the user puts in their config.
 
 ---
 
@@ -1408,22 +1415,61 @@ This design drops the superpowers plugin dependency. Fiddle becomes self-contain
 
 **Skills** (`skills/`):
 
+Skills are split into **foundational** (small, self-contained, read by agents playing a specific role) and **orchestrating** (tie foundational skills together, control the flow). This follows the superpowers pattern: foundational skills like TDD are standalone discipline primitives; orchestrating skills like subagent-driven-development reference them but don't inline them.
+
+Agents ignore large skills. Keeping foundational skills small (~100-200 lines) ensures the agent playing that role reads and follows the whole thing. Orchestrating skills are larger but focus on flow control, not role-specific details — they dispatch to agents that load the foundational skills.
+
+**Foundational — evaluator role** (read by evaluator team members):
+
+| File | Purpose | Loaded by |
+|---|---|---|
+| `skills/evaluate/SKILL.md` | Evaluator protocol: how to score dimensions 1-10, evidence requirements, scorecard JSON format, distrust rules, antipattern checking. Small and focused — the evaluator's "how to do your job" doc. | Evaluator team member |
+| `skills/evaluate/evaluator-frontend.md` | Frontend dimensions with full 1-10 scales + generic calibration anchors | Evaluator for frontend domain |
+| `skills/evaluate/evaluator-backend.md` | Backend dimensions with full 1-10 scales + generic calibration anchors | Evaluator for backend domain |
+| `skills/evaluate/evaluator-general.md` | General dimensions with full 1-10 scales | Evaluator fallback |
+
+**Foundational — runtime evidence role** (read by runtime agents):
+
+| File | Purpose | Loaded by |
+|---|---|---|
+| `skills/runtime-evidence/SKILL.md` | Runtime evidence protocol: launch app, ready check, screenshot capture, interaction protocol, evidence JSON format, harness vs app failure distinction. | Runtime agent (playwright-expert, rest-expert, etc.) |
+
+**Foundational — implementer role** (read by implementer subagents):
+
+| File | Purpose | Loaded by |
+|---|---|---|
+| `skills/develop/implementer-prompt.md` | Implementer dispatch template: task context, evaluation block, antipatterns, prior scorecard, self-review, report format. | Implementer subagent |
+
+**Foundational — holistic reviewer role** (read by holistic reviewer team members):
+
+| File | Purpose | Loaded by |
+|---|---|---|
+| `skills/develop/holistic-review.md` | Holistic review protocol: holistic dimensions, spec coverage matrix, remediation task generation, cross-domain integration checks. | Holistic reviewer team member |
+
+**Orchestrating** (read by the orchestrator / develop lead):
+
+| File | Purpose | References |
+|---|---|---|
+| `skills/develop/SKILL.md` | The implement → evaluate → converge loop. Dispatches implementers, evaluators, holistic reviewers. Runs scripts. Handles attended mode, restart, dispatch budget. Does NOT contain role-specific instructions — references foundational skills. | evaluate, runtime-evidence, implementer-prompt, holistic-review, all scripts |
+
+**Foundational — forked from superpowers** (unchanged discipline primitives):
+
 | File | Purpose |
 |---|---|
-| `skills/evaluate/SKILL.md` | Evaluation protocol — scoring, thresholds, iteration, convergence rules |
-| `skills/evaluate/evaluator-frontend.md` | Frontend domain template — full 1-10 scales, generic calibration anchors |
-| `skills/evaluate/evaluator-backend.md` | Backend domain template — full 1-10 scales, generic calibration anchors |
-| `skills/evaluate/evaluator-general.md` | Fallback domain template |
-| `skills/evaluate/runtime-evidence.md` | Instructions for runtime verification (launching app, screenshots, interaction) |
-| `skills/brainstorm/SKILL.md` | Forked from superpowers + calibration anchor extraction |
-| `skills/write-plan/SKILL.md` | Forked from superpowers + Evaluation blocks per task |
-| `skills/tdd/SKILL.md` | Forked as-is from superpowers |
-| `skills/verify/SKILL.md` | Forked as-is from superpowers |
-| `skills/debug/SKILL.md` | Forked as-is from superpowers |
-| `skills/worktrees/SKILL.md` | Forked as-is from superpowers |
-| `skills/finish-branch/SKILL.md` | Forked as-is from superpowers |
-| `skills/receive-review/SKILL.md` | Forked as-is from superpowers |
-| `skills/write-skill/SKILL.md` | Forked as-is from superpowers |
+| `skills/tdd/SKILL.md` | Test-driven development |
+| `skills/verify/SKILL.md` | Verification before completion |
+| `skills/debug/SKILL.md` | Systematic debugging |
+| `skills/worktrees/SKILL.md` | Git worktree management |
+| `skills/finish-branch/SKILL.md` | Branch completion options |
+| `skills/receive-review/SKILL.md` | Handling review feedback |
+| `skills/write-skill/SKILL.md` | Creating new skills |
+
+**Orchestrating — forked and modified from superpowers:**
+
+| File | Purpose | Changes from superpowers |
+|---|---|---|
+| `skills/brainstorm/SKILL.md` | Design exploration + spec writing | Add calibration anchor extraction from specs |
+| `skills/write-plan/SKILL.md` | Implementation plan writing | Add Evaluation blocks per task (domains, criteria, thresholds) |
 
 ### Modified Files in Fiddle
 
@@ -1648,16 +1694,16 @@ Prove the implement → evaluate → converge loop works end-to-end with the sim
 - Fork discipline primitives from superpowers (TDD, verification, debugging, worktrees, finish-branch)
 - Fork and modify brainstorm skill (add calibration anchor extraction)
 - Fork and modify write-plan skill (add Evaluation blocks)
-- `skills/evaluate/SKILL.md` — evaluation protocol
-- `skills/evaluate/evaluator-general.md` — general domain template with full 1-10 scales
-- `skills/develop/SKILL.md` — rewritten develop skill with evaluator loop (single domain, single provider)
+- Foundational: `skills/evaluate/SKILL.md` — evaluator protocol (how to score, evidence, scorecard format)
+- Foundational: `skills/evaluate/evaluator-general.md` — general domain template with full 1-10 scales
+- Foundational: `skills/develop/implementer-prompt.md` — implementer dispatch template
+- Orchestrating: `skills/develop/SKILL.md` — implement → evaluate → converge loop (single domain, single provider)
 - Core scripts: `check-thresholds.sh`, `check-convergence.sh`, `merge-scorecards.sh`, `append-eval-log.sh`, `parse-eval-log.sh`, `resolve-domains.sh`, `assess-git-state.sh`
 - Scorecard JSON schema enforced
 - `orchestrate.json` evaluator config (single domain, single provider)
 - Session restart/recovery
 - Circuit breaker (`max_dispatches_per_task`)
 - Delete `patch-superpowers/`, `develop-swarm/`, swarm scripts
-- Locking portability (`flock` via nix in `flake.nix` and `~/wrk/ai-devtools/flake.nix`)
 
 **Does NOT include:** runtime verification, multi-provider, multi-domain, holistic review, calibration files, antipatterns.
 
@@ -1668,13 +1714,13 @@ Prove the implement → evaluate → converge loop works end-to-end with the sim
 Add runtime evaluation — evaluators launch and interact with the running app.
 
 **Delivers:**
-- Runtime interaction protocol (runtime_agent, stack_agents as protocol elements)
+- Foundational: `skills/runtime-evidence/SKILL.md` — runtime evidence protocol
+- Foundational: `skills/evaluate/evaluator-frontend.md` — Flutter frontend domain template with full 1-10 scales
+- Foundational: `skills/evaluate/evaluator-backend.md` — Go API backend domain template with full 1-10 scales
 - `start-runtimes.sh`, `stop-runtimes.sh` with ready check contract
 - Harness failure vs app failure distinction (exit codes)
-- `skills/evaluate/evaluator-frontend.md` — Flutter frontend domain template with full 1-10 scales
-- `skills/evaluate/evaluator-backend.md` — Go API backend domain template with full 1-10 scales
 - Shipped evaluator configs: Flutter Web (for `~/wrk/next`), Go API (for `~/wrk/next` and `~/wrk/crops`), Wails/Svelte (for `~/wrk/crops`)
-- `skills/evaluate/runtime-evidence.md` — runtime evidence gathering instructions
+- runtime_agent and stack_agents defined as protocol elements in evaluate skill
 
 **Test:** Run an attended evaluation on a Flutter frontend task in `~/wrk/next`. Verify: evaluator launches app, takes screenshots via Playwright MCP, scores visual quality based on actual rendered output, catches the kind of failures the City Visualization Redesign exhibited.
 
@@ -1696,7 +1742,7 @@ Tasks that span frontend + backend get evaluated by both domain evaluators.
 Cross-task quality check at configurable checkpoints.
 
 **Delivers:**
-- Holistic reviewer protocol in develop skill
+- Foundational: `skills/develop/holistic-review.md` — holistic review protocol
 - Holistic dimensions with full 1-10 scales (integration, coherence, holistic spec fidelity, polish, runtime health)
 - Spec coverage matrix (every requirement → Full/Weak/Missing + evidence)
 - Remediation task generation from coverage gaps
