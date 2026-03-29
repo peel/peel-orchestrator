@@ -1,3 +1,0 @@
-- Idiomatic Go? (no old patterns like `interface{}`, custom min/max, `for` instead of `range`)
-- Error handling follows project conventions? (wrapped errors, no swallowed errors)
-- No goroutine leaks? (context cancellation, channel cleanup)
