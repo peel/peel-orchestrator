@@ -497,8 +497,7 @@ This design drops the superpowers plugin dependency. Fiddle becomes self-contain
 
 | File | Change |
 |---|---|
-| `skills/develop/SKILL.md` | Replace two-stage review with evaluator dispatch. Add attended mode gate. Convergence-based iteration. |
-| `skills/develop-swarm/SKILL.md` | Same review pipeline change for swarm mode. |
+| `skills/develop/SKILL.md` | Rewrite: single execution mode with evaluator loop. Drop swarm/sequential/subagent mode split. Add attended mode gate. Convergence-based iteration. |
 | `skills/deliver/SKILL.md` | Evolve step enriched to update calibration files + antipatterns. |
 | `orchestrate.json` | New `evaluators` section. |
 
@@ -507,6 +506,12 @@ This design drops the superpowers plugin dependency. Fiddle becomes self-contain
 | File | Reason |
 |---|---|
 | `skills/patch-superpowers/` | No longer needed — no superpowers dependency to patch. |
+| `skills/develop-swarm/` | Dropped. The new evaluator loop makes parallel worktree-per-bean execution impractical — evaluation with runtime verification dominates execution time, and parallelizing it requires duplicate runtime resources per worktree. Sequential execution with deep evaluation per task is the right tradeoff. |
+| `scripts/rebase-worker.sh` | No longer needed — swarm infrastructure. |
+| `scripts/merge-to-integration.sh` | No longer needed — swarm infrastructure. |
+| `scripts/post-rebase-verify.sh` | No longer needed — swarm infrastructure. |
+| `scripts/detect-reviewers.sh` | No longer needed — replaced by domain evaluator selection. |
+| `scripts/reset-slot.sh` | No longer needed — swarm infrastructure. |
 
 ### Unchanged
 
@@ -515,6 +520,14 @@ This design drops the superpowers plugin dependency. Fiddle becomes self-contain
 - Hooks infrastructure
 - Provider dispatch mechanism
 - discover/define/deliver phase skills (except deliver evolve enrichment)
+
+### Execution Model Simplification
+
+The current develop phase has three execution modes (subagent-driven, sequential, swarm). This design collapses to **one mode**: sequential task execution with the evaluator loop. The orchestrator processes tasks one at a time — each task goes through the full implement → evaluate → converge cycle before the next task starts.
+
+**Rationale:** The evaluator loop with runtime verification and convergence-based iteration is the expensive part of each task. Parallelizing implementation (the cheap part) while evaluation remains sequential yields negligible speedup. One well-executed mode is simpler, more reliable, and easier to reason about than three modes with varying quality levels.
+
+**Worktree isolation is preserved** — the entire feature branch still runs in an isolated worktree (via `using-git-worktrees`). What's dropped is worktree-per-bean parallelism within a single feature.
 
 ---
 
