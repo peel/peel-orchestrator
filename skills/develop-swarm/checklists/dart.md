@@ -1,3 +1,0 @@
-- Idiomatic Dart/Flutter? (proper null safety, no unnecessary `!` assertions)
-- Widget composition over inheritance? (small, focused widgets)
-- State management follows project patterns? (check CLAUDE.md)

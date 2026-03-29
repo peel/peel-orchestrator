@@ -13,7 +13,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONF="$PROJECT_DIR/orchestrate.json"
-TEMPLATE="$PROJECT_DIR/skills/develop-swarm/roles/provider-context.md"
+TEMPLATE="$PROJECT_DIR/skills/develop/provider-context.md"
 
 # --- Parse args ---
 PROVIDER=""

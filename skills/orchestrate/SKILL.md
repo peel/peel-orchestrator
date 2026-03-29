@@ -25,8 +25,6 @@ Parse from `{ARGS}`:
 | `--skip-docs` | false | Passed through to discover phase — skip discover-docs |
 | `--skip-challenge` | false | Passed through to discover and define phases |
 | `--skip-panel` | false | Passed through to define phase |
-| `--workers <N>` | 2 | Passed through to develop phase |
-| `--max-review-cycles <N>` | 3 | Passed through to develop phase |
 
 Provider configuration lives in `orchestrate.json` only — no CLI overrides. Each phase reads its provider list from `providers.phases.<phase>`. Available providers are auto-detected at session start (see `hooks/session-start-check-providers.sh`).
 
@@ -48,13 +46,15 @@ Read `orchestrate.json` (project root) if it exists. Format is JSON:
     },
     "timeout": { "attended": 120, "unattended": 90 }
   },
-  "develop": {
-    "execution": "subagent",
-    "workers": 2,
-    "max_review_cycles": 3,
-    "max_impl_turns": 50,
-    "stall_timeout_min": 15,
-    "stall_max_respawns": 2
+  "evaluators": {
+    "attended": false,
+    "max_dispatches_per_task": 60,
+    "domains": {
+      "general": {
+        "template": "evaluator-general",
+        "providers": ["claude"]
+      }
+    }
   },
   "models": {},
   "plans": {}
@@ -99,7 +99,7 @@ Run this section immediately on invocation, before any phase.
 1. Set provider defaults from the table above. Set model defaults from the Model Defaults table.
 2. If `orchestrate.json` exists (project root): read it with the Read tool. Parse each JSON key:
    - `providers` — provider definitions and phase assignments
-   - `develop` — set execution, workers, max_review_cycles, max_impl_turns, stall_timeout_min, stall_max_respawns. If `develop` block is absent or empty, fall back to `ralph` block for backwards compatibility.
+   - `evaluators` — evaluator configuration: `attended`, `max_dispatches_per_task`, and domain definitions
    - `models` — override model defaults for each phase. `develop` is a string key. "default" means omit the `model:` parameter to inherit the session model.
 3. Parse CLI flags from `{ARGS}`. Override any config file values.
 4. Store final config values for use throughout the session.
@@ -191,13 +191,10 @@ Fall through to DEVELOP.
 
 Build args for the develop phase:
 - `--epic <epic-id>`
-- `--workers <workers>` (if overridden from defaults)
-- `--max-review-cycles <max-review-cycles>` (if overridden from defaults)
-- `--execution <execution>` (if `develop.execution` is set in config)
 
 Invoke:
 ```
-Skill(skill: "fiddle:develop", args: "<built args>")
+Skill(skill: "fiddle:develop", args: "--epic <epic-id>")
 ```
 
 Transition:
