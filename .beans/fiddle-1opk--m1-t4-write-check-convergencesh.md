@@ -1,7 +1,7 @@
 ---
 # fiddle-1opk
 title: 'M1-T4: Write check-convergence.sh'
-status: todo
+status: done
 type: task
 created_at: 2026-03-29T19:19:32Z
 updated_at: 2026-03-29T19:19:32Z
