@@ -63,33 +63,220 @@ Base dimensions and generic calibration anchors per domain:
 | `evaluator-backend.md` | Correctness, API contract fidelity, Error handling, Spec fidelity |
 | `evaluator-general.md` | Correctness, Spec fidelity, Code quality |
 
-Each dimension includes:
+All dimensions are fiddle defaults. Projects can override, add, or remove dimensions via `orchestrate.json`. Each dimension includes:
 - Definition (what it measures)
-- Default threshold (e.g., 7/10)
-- Generic calibration anchors (what a 4/7/9 looks like in stack-agnostic terms)
+- Default threshold
+- Full 1-10 scoring scale (every level defined — no gaps, no interpolation)
 
-Generic anchors describe quality levels in terms of **patterns and signals**, not project-specific content:
+Generic anchors describe quality levels in terms of **patterns and signals**, not project-specific content. Below is a representative example for one frontend dimension. The actual domain templates contain the full scale for EVERY dimension.
 
-```markdown
-## Visual Quality — Generic Anchors
+#### Frontend Dimensions
 
-**Score 3-4 (FAIL):**
-- Default/unstyled framework output
-- Placeholder shapes where finished UI elements should be
-- No evidence the design system was consulted
-- Layout functional but visually unintentional
+**Visual Quality** — Does the rendered output look intentional and polished?
+Default threshold: 7
 
-**Score 6-7 (Threshold):**
-- Design system colors/typography/spacing applied consistently
-- Custom components, not framework defaults
-- Rough edges exist but overall looks designed
-- A designer would say "needs polish" not "start over"
+```
+ 1  Broken: App doesn't render. Blank screen, crash, or error state.
+ 2  Non-functional: Something renders but is unusable. Layout completely
+    broken, elements overlapping or off-screen.
+ 3  Placeholder: Default framework output. Colored rectangles, system
+    fonts, no evidence of design system.
+ 4  Minimal: Some custom styling attempted but inconsistent. Mix of
+    placeholder and styled elements. Looks unfinished.
+ 5  Mediocre: Design system partially applied. Some components styled,
+    others default. An engineer's "it works" not a designer's "it's ready."
+ 6  Acceptable: Design system applied consistently. Custom components
+    throughout. Rough edges visible but overall looks intentional.
+ 7  Good: Matches design reference in structure and feel. Minor polish
+    issues. A designer would say "needs a pass" not "start over."
+ 8  Strong: Close to design reference. Consistent visual language.
+    Details mostly right. Minor nitpicks only.
+ 9  Polished: Matches design reference closely. Smooth transitions,
+    proper spacing, color harmony. Ready to ship.
+10  Exceptional: Exceeds design reference. Delightful details,
+    micro-interactions, visual surprise. Better than specified.
+```
 
-**Score 9-10 (Excellent):**
-- Matches design reference closely
-- Consistent visual language across all elements
-- Polished details (transitions, alignment, whitespace)
-- A designer would say "ship it"
+**Craft** — Typography, spacing, color harmony, contrast, alignment.
+Default threshold: 7
+
+```
+ 1  Broken: No text visible, or text unreadable (white on white, 0px font).
+ 2  Illegible: Text renders but wrong size, overlapping, or truncated.
+    Colors clash. No spacing system.
+ 3  System defaults: Framework default fonts, spacing, colors.
+    No intentional typographic choices.
+ 4  Inconsistent: Some intentional choices but applied unevenly.
+    Multiple font sizes with no hierarchy. Spacing varies randomly.
+ 5  Basic: One font applied. Some spacing consistency. Colors from a
+    palette but without harmony. Alignment mostly correct.
+ 6  Competent: Type hierarchy clear (headings, body, labels). Spacing
+    system visible. Colors harmonious. Minor alignment issues.
+ 7  Good: Type hierarchy, spacing, and color all feel designed together.
+    Contrast ratios adequate. Alignment consistent.
+ 8  Strong: Typography reinforces hierarchy and mood. Spacing creates
+    rhythm. Color usage purposeful. No orphaned elements.
+ 9  Refined: Typographic details polished (line height, letter spacing,
+    font weight variation). White space used intentionally.
+10  Masterful: Typography, color, and spacing create a distinctive
+    visual identity. Every detail considered.
+```
+
+**Functionality** — Does it work when you use it? Interactive behavior correct?
+Default threshold: 8
+
+```
+ 1  Broken: Core interaction doesn't work. Buttons don't respond, pages don't load.
+ 2  Crashes: Some interactions work, others crash the app.
+ 3  Partial: Main flow works. Secondary interactions broken or missing.
+ 4  Fragile: Works for expected interactions. Unexpected actions (back button,
+    rapid taps, resize) cause breakage.
+ 5  Basic: All specified interactions work. No feedback for loading states,
+    errors, or edge cases.
+ 6  Functional: Interactions work with appropriate feedback. Loading states
+    shown. Some edge cases unhandled.
+ 7  Solid: All interactions work correctly with feedback. Error states
+    handled. Responsive to different viewport sizes.
+ 8  Robust: Handles rapid interaction, concurrent state changes, connectivity
+    issues. Animations smooth. No jank.
+ 9  Polished: Transitions between states feel natural. Undo/recovery
+    available. Accessibility basics met.
+10  Delightful: Interactions feel instant. Animations guide attention.
+    Keyboard navigation works. Screen reader compatible.
+```
+
+**Spec Fidelity** — Does the implementation match what was specified?
+Default threshold: 8
+
+```
+ 1  Wrong feature: Built something entirely different from spec.
+ 2  Wrong approach: Right feature, fundamentally wrong implementation strategy.
+ 3  Major gaps: Core spec requirements missing. What exists may be correct
+    but the feature is incomplete.
+ 4  Partial: ~50% of spec requirements implemented. Missing pieces noticeable.
+ 5  Most there: ~70% of spec requirements. Missing pieces are secondary
+    but a careful reviewer would catch them.
+ 6  Functional coverage: All primary requirements met. Secondary requirements
+    (edge cases, error states, responsive behavior) partially covered.
+ 7  Good coverage: All requirements met. Some implemented minimally
+    (letter of the spec, not spirit).
+ 8  Faithful: Implementation matches spec in both letter and spirit.
+    Design intent preserved.
+ 9  Complete: Every spec requirement fully implemented. No drift.
+    Implementation captures nuances of the design.
+10  Exceeds spec: All requirements met and implementation improves on
+    spec where the spec was ambiguous or underspecified.
+```
+
+#### Backend Dimensions
+
+**Correctness** — Does the code produce right results for all inputs?
+Default threshold: 7
+
+```
+ 1  Broken: Doesn't compile or start. Panics on launch.
+ 2  Crashes: Starts but crashes on basic operations. Core paths broken.
+ 3  Happy path only: Main flow works, all error paths crash or
+    return wrong data.
+ 4  Fragile: Works for expected inputs. Unexpected inputs cause
+    silent corruption, panics, or wrong results.
+ 5  Partial: Most paths handled. Some edge cases produce wrong
+    results. Error messages misleading.
+ 6  Functional: All specified paths work correctly. Edge cases
+    handled but some return generic errors.
+ 7  Solid: All paths correct with appropriate errors. Input
+    validation present. No silent failures.
+ 8  Robust: Handles unexpected inputs gracefully. Errors are
+    specific and actionable. Concurrent access safe.
+ 9  Thorough: All edge cases handled correctly. Error recovery
+    works. Observability (logging, metrics) in place.
+10  Bulletproof: Handles adversarial input. Graceful degradation
+    under load. Comprehensive observability.
+```
+
+**API Contract Fidelity** — Does the implementation match the API spec/contract?
+Default threshold: 7
+
+```
+ 1  No contract: No spec, endpoints return arbitrary shapes.
+ 2  Wrong contract: Spec exists but implementation contradicts it.
+ 3  Partial match: Some endpoints match spec, others diverge
+    in structure or status codes.
+ 4  Structure matches, semantics don't: JSON shapes correct but
+    values wrong (wrong units, missing nullability).
+ 5  Happy path matches: Success responses match spec. Error
+    responses are ad-hoc.
+ 6  Mostly compliant: All responses structurally correct. Some
+    status codes wrong (200 instead of 201, 400 instead of 422).
+ 7  Compliant: All status codes, response shapes, and headers
+    match spec. Pagination/filtering works as documented.
+ 8  Strict compliance: Content types, validation errors, and
+    edge case responses all match spec. Undocumented fields absent.
+ 9  Verified compliance: Contract tests exist and pass.
+    Spec and implementation provably in sync.
+10  Self-documenting: Generated docs from implementation match
+    spec exactly. Breaking changes detected automatically.
+```
+
+**Error Handling** — How gracefully does the system handle failures?
+Default threshold: 7
+
+```
+ 1  No handling: Panics and stack traces leak to client.
+ 2  Catch-all: Generic 500 for all errors. No differentiation.
+ 3  Basic: Some errors caught, some leak. Inconsistent format.
+ 4  Structured but wrong: Error format consistent but status
+    codes inappropriate or messages misleading.
+ 5  Adequate: Errors categorized (4xx vs 5xx). Messages exist
+    but are generic ("something went wrong").
+ 6  Informative: Specific error messages. Correct status codes.
+    Client can distinguish error types.
+ 7  Actionable: Messages tell client what to fix. Validation
+    errors reference specific fields.
+ 8  Complete: All error paths return structured, documented
+    errors. Retry-after headers where appropriate.
+ 9  Graceful: Partial failures handled (some items succeed,
+    some fail). Transactional consistency maintained.
+10  Resilient: Circuit breakers, fallbacks, degraded modes.
+    Errors don't cascade across services.
+```
+
+**Spec Fidelity** — Same scale as frontend spec fidelity (shared across all domains).
+Default threshold: 8
+
+#### General Dimensions
+
+For tasks that don't fit a specific domain (scripts, configuration, tooling).
+
+**Correctness** — Same scale as backend correctness.
+Default threshold: 7
+
+**Spec Fidelity** — Same scale as frontend/backend spec fidelity.
+Default threshold: 8
+
+**Code Quality** — Is the code clean, maintainable, and idiomatic?
+Default threshold: 6
+
+```
+ 1  Broken: Syntax errors, doesn't parse.
+ 2  Garbage: Runs but incomprehensible. No structure, no naming,
+    no separation of concerns.
+ 3  Spaghetti: Works but tangled. Functions do too many things.
+    Copy-paste duplication. Global state.
+ 4  Rough: Some structure but inconsistent. Mix of patterns.
+    Long functions with unclear responsibilities.
+ 5  Adequate: Reasonable structure. Functions mostly do one thing.
+    Some duplication. Naming is okay but not great.
+ 6  Clean: Clear structure, good naming, minimal duplication.
+    Follows existing codebase patterns.
+ 7  Good: Well-organized with clear interfaces. Easy to read.
+    Follows language idioms. Tests are clear.
+ 8  Strong: Clean abstractions, good separation of concerns.
+    Code reads like documentation. Easy to modify.
+ 9  Excellent: Elegant and simple. Minimal surface area.
+    Another developer could maintain this easily.
+10  Exemplary: Could be used as a teaching example. Every
+    abstraction earns its complexity.
 ```
 
 **Layer 3: Project-Specific Configuration (per project — optional overrides)**
@@ -155,6 +342,43 @@ Seed elements in empty dists  | Missing  | Not visible in screenshots
 - Matrix is available at evolve step for human audit
 
 When holistic review fails, it produces a remediation plan. Remediation tasks go through the standard implement → evaluate loop. Holistic reviewer runs again after remediation. Up to `max_holistic_iterations` (configurable, default 3). If still failing, escalate to human.
+
+---
+
+### Multi-Domain Tasks
+
+A task that touches both frontend and backend (e.g., "add an endpoint and wire it into the UI") needs evaluation from multiple domains.
+
+**The Evaluation block supports multiple domains:**
+
+```markdown
+### Task 5: Wire district data API to city visualization
+
+**Evaluation:**
+- Domains: [frontend, backend]
+- Task criteria:
+    backend:
+      - GET /api/districts returns all 6 districts with unlock counts
+      - Response matches DistrictResponse schema
+    frontend:
+      - City visualization fetches from API, not hardcoded data
+      - Loading state shown while fetching
+      - Error state if API unavailable
+- Threshold: 7/10 per dimension across both domains
+```
+
+**How the orchestrator handles multi-domain evaluation:**
+
+1. One implementer builds both sides (single subagent, single commit)
+2. Domain evaluators run independently, each on the relevant parts:
+   - Backend evaluator(s): start server, hit API, score backend dimensions
+   - Frontend evaluator(s): start app, interact with UI, score frontend dimensions
+   - Can run in parallel if runtime slots allow, or sequentially with flock
+3. Merge ALL scorecards across all domains (minimum per dimension)
+4. Each domain must independently meet its own thresholds — backend passing doesn't compensate for frontend failing
+5. On failure, feedback to the fresh implementer identifies which domain(s) failed and why
+
+**Runtime for multi-domain:** Each domain uses its own runtime command from `orchestrate.json`. The backend evaluator starts the server; the frontend evaluator starts the app. If the frontend depends on the backend (API calls), the frontend runtime command should also start the backend, or the orchestrator starts it first.
 
 ---
 
@@ -239,62 +463,151 @@ Orchestrator assigns one slot per evaluator by index. Evaluators run simultaneou
 
 ### Per-Task Protocol
 
-The strict implement → evaluate → iterate loop that replaces the current subagent-driven-development per-task flow:
+The strict implement → evaluate → iterate loop that replaces the current subagent-driven-development per-task flow.
+
+#### Step 0: Record baseline
 
 ```
-1. DISPATCH implementer (subagent, fresh per iteration)
-   - Full task text + context
-   - Evaluation block (so implementer knows what it will be graded on)
-   - Antipattern file ("avoid these known failures")
-   - Prior scorecard + evaluator guidance (if iteration 2+)
-
-   Implementer returns: DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT
-   - Handle BLOCKED/NEEDS_CONTEXT as today (provide context, re-dispatch, escalate)
-
-2. DISPATCH evaluator(s) (fresh team member(s) per task)
-   - Evaluation protocol + domain template + project config
-   - Calibration anchors + antipattern file
-   - Git diff (BASE_SHA..HEAD_SHA)
-   - Runtime command (from orchestrate.json)
-   - Task criteria (from plan's Evaluation block)
-   - Iteration number and prior scorecards (if iteration 2+)
-
-   Multi-provider: all configured providers evaluate (parallel or coordinated)
-   Each returns a scorecard.
-
-3. MERGE scorecards (minimum score per dimension)
-
-4. ATTENDED GATE (if evaluators.attended: true)
-   - Show merged scorecard to human
-   - Highlight provider disagreements
-   - Human confirms or corrects
-   - Corrections encoded as calibration anchors
-
-5. CONVERGENCE CHECK (on merged scores)
-   - All dimensions >= threshold? All task criteria pass? No antipatterns?
-
-   PASS + second consecutive pass (or all scores >= threshold+2):
-     → CONVERGED → mark task complete → next task
-
-   PASS (first time):
-     → Re-evaluate once more to confirm convergence
-
-   FAIL + iteration < max_eval_iterations:
-     → Dispatch FRESH implementer with merged scorecard + guidance → step 1
-
-   FAIL + iteration >= max_eval_iterations:
-     → ESCALATE to human
-       "Task X failed after N evaluations. Latest scores: [scorecard]. Recommend: [action]"
+- Record BASE_SHA: git rev-parse HEAD
+- Mark task bean as in-progress
+- Append to bean body:
+    ## Evaluation Log
+    BASE_SHA: {BASE_SHA}
 ```
 
-**Critical protocol rules:**
+#### Step 1: Dispatch implementer
 
-1. Evaluator is NEVER the implementer. Always separate. Self-review is pre-screening only, not the gate.
-2. Fresh implementer on each iteration. Not the same agent asked to "fix things." Fresh context with the evaluator's feedback injected.
-3. Merged evaluator scores are final. The orchestrator checks thresholds mechanically — no judgment call on whether a 6 is "close enough to 7."
-4. No skipping runtime for tasks that have a runtime command. If the Evaluation block says `Runtime: flutter run`, the evaluator MUST launch it and inspect.
-5. Escalate, don't force. If max iterations reached without passing, stop and ask the human. Never silently lower thresholds.
-6. Evaluator gets previous scores. On iteration 2+, the evaluator sees all prior scorecards to track improvement/regression. If scores regress, flag it.
+```
+DISPATCH implementer (subagent, fresh per iteration)
+  - Full task text + context
+  - Evaluation block (so implementer knows what it will be graded on)
+  - Antipattern file ("avoid these known failures")
+  - Prior scorecard + evaluator guidance (if iteration 2+)
+
+Implementer returns: DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT
+  - DONE → proceed to step 2
+  - DONE_WITH_CONCERNS → read concerns, address if needed, proceed to step 2
+  - BLOCKED → assess blocker, provide context or escalate
+  - NEEDS_CONTEXT → provide missing context, re-dispatch step 1
+```
+
+#### Step 2: Resolve domains
+
+```
+Read task's Evaluation block → extract Domains list
+
+Single domain (e.g., Domains: [frontend]):
+  → Look up evaluators.domains.frontend in orchestrate.json
+  → One set of evaluators, one runtime config
+
+Multiple domains (e.g., Domains: [frontend, backend]):
+  → Look up EACH domain in orchestrate.json
+  → Each domain gets its own evaluator(s) with its own runtime
+  → If frontend runtime depends on backend (API calls):
+      start backend runtime first, then frontend
+```
+
+#### Step 3: Dispatch evaluator(s)
+
+```
+FOR EACH domain in task's Domains list:
+
+  DISPATCH evaluator(s) (fresh team member(s))
+    - Evaluation protocol + domain template + project config
+    - Calibration anchors (generic + project-specific for this domain)
+    - Antipattern file for this domain
+    - Git diff (BASE_SHA..HEAD_SHA)
+    - Runtime command for this domain (from orchestrate.json)
+    - Task criteria for this domain (from plan's Evaluation block)
+    - Iteration number and prior scorecards (if iteration 2+)
+
+  Multi-provider: all configured providers evaluate this domain
+    (parallel or coordinated via runtime command)
+  Each provider returns a scorecard for this domain's dimensions.
+
+Domains can evaluate in parallel if runtime slots allow,
+or sequentially with flock coordination.
+```
+
+#### Step 4: Merge scorecards
+
+```
+MERGE across providers: minimum score per dimension wins
+MERGE across domains: union of all dimension scores
+  - Frontend dimensions scored by frontend evaluators only
+  - Backend dimensions scored by backend evaluators only
+  - Shared dimensions (Spec Fidelity) scored by all, minimum wins
+  - Each domain must independently meet its own thresholds
+
+Append to bean's Evaluation Log:
+  ### Iteration N (timestamp)
+  **frontend:**
+  - Visual quality: 7/10
+  - Craft: 6/10 (FAIL, threshold 7)
+  - Functionality: 8/10
+  - Spec fidelity: 8/10
+  **backend:**
+  - Correctness: 8/10
+  - API contract: 7/10
+  - Error handling: 7/10
+  - Spec fidelity: 8/10
+  **Task criteria:** 5/6 pass (FAIL: "Loading state not shown while fetching")
+  **Guidance:** "Craft: spacing between district labels inconsistent..."
+```
+
+#### Step 5: Attended gate
+
+```
+IF evaluators.attended: true
+  Show merged scorecard to human
+  Highlight:
+    - Any dimension below threshold
+    - Provider disagreements (score differs by 3+ between providers)
+    - Domain-specific failures
+  Human confirms or corrects
+  Corrections encoded as calibration anchors for the relevant domain
+```
+
+#### Step 6: Convergence check
+
+```
+ALL dimensions >= threshold across ALL domains?
+ALL task criteria pass across ALL domains?
+No known antipatterns detected?
+
+CONVERGED (second consecutive pass, or all scores >= threshold+2):
+  → Mark task bean as completed
+  → Next task
+
+PASS (first time):
+  → Re-evaluate once more to confirm convergence → step 3
+
+FAIL + iteration < max_eval_iterations:
+  → Dispatch FRESH implementer with:
+      - Merged scorecard (all domains)
+      - Per-domain guidance (which domain failed and why)
+      - "Backend passed. Frontend failed on Craft (6/10, need 7).
+         Fix: spacing between district labels."
+  → Go to step 1
+
+FAIL + iteration >= max_eval_iterations:
+  → ESCALATE to human
+    "Task X failed after N evaluations.
+     Latest scores: [full scorecard across all domains].
+     Failing domains: [list].
+     Recommend: [action]"
+```
+
+#### Critical protocol rules
+
+1. **Evaluator is NEVER the implementer.** Always separate. Self-review is pre-screening only, not the gate.
+2. **Fresh implementer on each iteration.** Not the same agent asked to "fix things." Fresh context with the evaluator's feedback injected.
+3. **Merged evaluator scores are final.** The orchestrator checks thresholds mechanically — no judgment call on whether a 6 is "close enough to 7."
+4. **No skipping runtime** for tasks that have a runtime command. If the Evaluation block specifies a domain with runtime configured, the evaluator MUST launch it and inspect.
+5. **Escalate, don't force.** If max iterations reached without passing, stop and ask the human. Never silently lower thresholds.
+6. **Evaluator gets previous scores.** On iteration 2+, the evaluator sees all prior scorecards to track improvement/regression. If scores regress, flag it.
+7. **Each domain evaluated independently.** Frontend evaluators only score frontend dimensions. Backend evaluators only score backend dimensions. A frontend pass does not compensate for a backend fail.
+8. **Multi-domain runtime ordering.** If one domain depends on another at runtime (frontend calls backend API), start the dependency first. The Evaluation block should document this: `Runtime dependency: backend must be running before frontend evaluation.`
 
 ---
 
@@ -305,30 +618,109 @@ The strict implement → evaluate → iterate loop that replaces the current sub
    - Evaluation protocol + holistic dimensions + project config
    - Full spec/design doc
    - Entire diff from plan start (BASE_SHA..HEAD_SHA)
-   - Runtime command
-   - Calibration anchors + antipattern file
+   - Runtime commands for ALL domains configured in the project
+     (holistic reviewer evaluates the whole system)
+   - Calibration anchors + antipattern files (all domains)
 
    Multi-provider: same coordination as task evaluators.
+   Runtime ordering: start backends before frontends.
 
 2. Reviewer produces:
    - Holistic dimension scores
    - Spec coverage matrix (every requirement → Full/Weak/Missing + evidence)
-   - Antipattern check at system level
+   - Antipattern check at system level (across all domains)
+   - Cross-domain integration assessment
+     (does frontend correctly consume backend API? Data formats match?)
    - Remediation recommendations (if failing)
 
 3. MERGE scorecards (minimum per dimension)
-   MERGE coverage matrices (if any provider marks requirement as Missing, it's Missing)
+   MERGE coverage matrices (if any provider marks requirement as Missing,
+   it's Missing)
 
 4. ATTENDED GATE (if evaluators.attended: true)
 
 5. CHECK thresholds
    PASS → continue to next batch or finish
-   FAIL → create remediation tasks (from coverage gaps + failed dimensions)
-          → remediation tasks go through per-task loop
-          → holistic review runs again after remediation
-          → up to max_holistic_iterations (default 3)
-          → if still failing → escalate to human
+   FAIL → create remediation tasks:
+          - Each remediation task gets its own Evaluation block with domains
+          - Remediation tasks go through the full per-task protocol
+          - Holistic review runs again after all remediation tasks complete
+          - Up to max_holistic_iterations (default 3)
+          - If still failing → escalate to human
 ```
+
+---
+
+### Session Restart and Recovery
+
+If a session dies mid-execution (crash, timeout, user interrupt), the orchestrator must resume cleanly on restart.
+
+#### State persistence
+
+| Data | Where | Survives restart? |
+|---|---|---|
+| Task completion status | Bean status field | Yes |
+| Current task | Bean marked `in-progress` | Yes |
+| Evaluation history + iteration count | Bean body `## Evaluation Log` | Yes |
+| Baseline commit for current task | Bean body `BASE_SHA` | Yes |
+| Calibration corrections | Calibration file on disk | Yes |
+| Antipattern additions | Antipattern file on disk | Yes |
+
+All evaluation state is persisted on the bean. No ephemeral session state needed.
+
+#### Restart protocol
+
+```
+1. READ plan and all task beans
+
+2. SKIP tasks with status = completed (trust git history)
+
+3. FIND task with status = in-progress
+   - Read its Evaluation Log from bean body
+   - Extract BASE_SHA and iteration count
+
+4. ASSESS git state:
+   a. Clean (HEAD has commits beyond BASE_SHA, no conflicts):
+      → Resume evaluation from iteration N+1
+      → Evaluator receives all prior scorecards from bean's Evaluation Log
+
+   b. Dirty (uncommitted changes, partial work):
+      → git stash (preserve partial work for reference)
+      → Reset to last committed state
+      → Resume from last completed iteration
+
+   c. Corrupted (merge conflicts, broken state):
+      → git reset --hard {BASE_SHA}
+      → Clear Evaluation Log for this task
+      → Restart task from iteration 1
+
+5. RESUME per-task protocol from appropriate step
+```
+
+#### Bean evaluation log format
+
+```markdown
+## Evaluation Log
+BASE_SHA: a7981ec
+
+### Iteration 1 (2026-03-29T14:23:00Z)
+**frontend:**
+- Visual quality: 5/10 (FAIL)
+- Craft: 6/10 (FAIL)
+- Functionality: 7/10
+- Spec fidelity: 4/10 (FAIL)
+**Guidance:** "Sprites not loading, fallback rectangles visible..."
+
+### Iteration 2 (2026-03-29T14:31:00Z)
+**frontend:**
+- Visual quality: 7/10
+- Craft: 7/10
+- Functionality: 7/10
+- Spec fidelity: 6/10 (FAIL)
+**Guidance:** "Sprites load but zone radius doesn't grow..."
+```
+
+On restart, the orchestrator reads this log and resumes at iteration 3 with full history. The fresh implementer gets all prior scorecards as context.
 
 ---
 
@@ -597,63 +989,83 @@ The current develop phase has three execution modes (subagent-driven, sequential
 ```
 BRAINSTORM
   → Design spec
-  → Initial calibration anchors (extracted from spec)
+  → Initial calibration anchors (extracted from spec, per domain)
 
-PLAN (writing-plans)
+PLAN (write-plan)
   → Tasks with Evaluation blocks:
-      Domain: frontend
-      Runtime: (from orchestrate.json)
+      Domains: [frontend, backend]    ← single or multiple
       Task criteria:
-        - Districts render as soft-edged circles
-        - Zone radius grows with unlock count
-        - Tint colors match design doc palette
+        frontend:
+          - Districts render as soft-edged circles
+          - Zone radius grows with unlock count
+        backend:
+          - GET /api/districts returns correct schema
       Threshold: 7/10 per dimension, all criteria must pass
   → Spec requirements list (feeds holistic coverage matrix)
 
-DEVELOP (per task)
+DEVELOP (per task, sequential)
   ┌──────────────────────────────────────────────────────────────┐
+  │ 0. Record BASE_SHA, mark bean in-progress                    │
+  │                                                              │
   │ 1. Dispatch implementer (subagent, fresh per iteration)      │
   │    - Task text + evaluation block + antipatterns              │
-  │    - Prior scorecard if iteration 2+                         │
+  │    - Prior scorecard (all domains) if iteration 2+           │
   │                                                              │
-  │ 2. Dispatch evaluator(s) (fresh team member(s))              │
-  │    - Protocol + domain template + project config             │
-  │    - Calibration + antipatterns + runtime + diff             │
-  │    - Multi-provider: parallel or coordinated via runtime cmd │
+  │ 2. Resolve domains from Evaluation block                     │
+  │    - Look up each domain's config in orchestrate.json        │
+  │    - Determine runtime ordering (backends before frontends)  │
   │                                                              │
-  │ 3. Merge scorecards (minimum per dimension)                  │
+  │ 3. Dispatch evaluator(s) per domain (fresh team member(s))   │
+  │    - Each domain: protocol + template + config + runtime     │
+  │    - Multi-provider per domain: parallel or coordinated      │
   │                                                              │
-  │ 4. Attended gate (if attended: show scorecard, allow         │
-  │    corrections → calibration anchors)                        │
+  │ 4. Merge scorecards                                          │
+  │    - Across providers: minimum per dimension                 │
+  │    - Across domains: union (each domain scored independently)│
+  │    - Append scorecard to bean's Evaluation Log               │
   │                                                              │
-  │ 5. Convergence check                                         │
-  │    CONVERGED → next task                                     │
-  │    FAIL + iterations remain → fresh implementer → step 1     │
-  │    FAIL + max reached → escalate to human                    │
+  │ 5. Attended gate (if attended: show scorecard per domain,    │
+  │    highlight cross-domain and cross-provider disagreements,  │
+  │    allow corrections → calibration anchors)                  │
+  │                                                              │
+  │ 6. Convergence check (all domains must pass independently)   │
+  │    CONVERGED → mark bean completed → next task               │
+  │    FAIL → fresh implementer with per-domain guidance → step 1│
+  │    MAX REACHED → escalate to human                           │
   └──────────────────────────────────────────────────────────────┘
 
 HOLISTIC REVIEW (every N tasks + after all tasks)
   ┌──────────────────────────────────────────────────────────────┐
   │ Fresh team member(s), multi-provider                         │
-  │ - Full app walkthrough + spec coverage matrix                │
+  │ - Start ALL domain runtimes (backends first, then frontends) │
+  │ - Full system walkthrough: end-to-end across domains         │
+  │ - Cross-domain integration check (frontend ↔ backend)        │
+  │ - Spec coverage matrix (all requirements, all domains)       │
   │ - Holistic dimensions scored                                 │
   │ - PASS → continue                                            │
-  │ - FAIL → remediation tasks → per-task loop → re-review       │
+  │ - FAIL → remediation tasks (with domain-specific Evaluation  │
+  │          blocks) → per-task loop → re-review                 │
   │ - Max 3 holistic iterations → escalate                       │
   └──────────────────────────────────────────────────────────────┘
 
 FINISH BRANCH
-  → finishing-a-development-branch (unchanged)
+  → finish-branch skill (forked from superpowers)
 
 DELIVER
   → Drift analysis, doc updates (existing)
 
 EVOLVE (post-delivery, human)
-  → Review scorecards, coverage matrix, iteration counts
-  → Update calibration anchors (where evaluator was wrong)
-  → Append new antipatterns (real failures found)
-  → Adjust thresholds (if consistently too strict/lenient)
+  → Review scorecards per domain, coverage matrix, iteration counts
+  → Update calibration anchors per domain (where evaluator was wrong)
+  → Append new antipatterns per domain (real failures found)
+  → Adjust thresholds per domain (if consistently too strict/lenient)
   → These feed forward into the next run
+
+SESSION RESTART
+  → Read beans, find in-progress task
+  → Read Evaluation Log from bean (BASE_SHA, iteration history)
+  → Assess git state (clean/dirty/corrupted)
+  → Resume from appropriate iteration with full scorecard history
 ```
 
 ### Compound Loop Across Runs
