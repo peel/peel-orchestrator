@@ -38,7 +38,7 @@ Build the brainstorming args:
 
 Invoke:
 ```
-Skill(skill: "superpowers:brainstorming", args: "--from-orchestrate [--skip-panel]")
+Skill(skill: "fiddle:brainstorm", args: "--from-orchestrate [--skip-panel]")
 ```
 
 This explores intent, asks questions, proposes 2-3 approaches, runs panel enrichment (if providers are available and panel not skipped), and produces a design doc. Follow the skill's instructions completely.
@@ -60,7 +60,7 @@ If challenges surface issues that require design changes, update the design doc 
 
 Invoke the writing-plans skill:
 ```
-Skill(skill: "superpowers:writing-plans", args: "--from-orchestrate")
+Skill(skill: "fiddle:write-plan", args: "--from-orchestrate")
 ```
 
 This creates a detailed implementation plan and decomposes it into beans. The `--from-orchestrate` flag causes it to return control here after bean creation instead of presenting execution handoff options.
