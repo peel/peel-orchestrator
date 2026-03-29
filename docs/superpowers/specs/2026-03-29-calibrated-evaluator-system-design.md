@@ -26,7 +26,7 @@ Replace the two-stage pass/fail review with a **calibrated evaluator system** th
 |---|---|
 | Two-stage review: spec-reviewer → code-quality-reviewer | Single evaluator per task, scored dimensions with hard thresholds |
 | Pass/fail review | Scored 1-10 per dimension, minimum threshold per dimension |
-| 1-2 review cycles | Convergence-based iteration, up to 15 cycles |
+| 1-2 review cycles | Convergence-based iteration, capped by dispatch budget |
 | Code diff review only | Runtime verification — evaluator launches and interacts with the running app |
 | Single model reviews | Multi-provider evaluation (Claude + Codex + Gemini), minimum score wins |
 | Generic reviewer prompts | Domain-specific calibrated evaluators with few-shot scoring anchors |
@@ -51,7 +51,7 @@ The scoring/threshold/iteration machinery. Never changes per project.
 - Safety cap at `max_dispatches_per_task` (default 60 dispatches, where dispatches = providers × domains × iterations)
 - Distrust instructions ("verify independently, don't trust implementer's claims")
 - Scorecard format and reporting rules
-- Escalation protocol (max iterations reached → stop, report to human)
+- Escalation protocol (dispatch budget exceeded → stop, report to human)
 
 **Layer 2: Domain Evaluator Templates (fiddle — ships defaults, project can override)**
 
@@ -315,7 +315,7 @@ Runs after each task implementation. Fresh team member per task.
 
 #### Tier 2: Holistic Reviewer
 
-Runs at configured checkpoints — every N tasks and after all tasks complete. Fresh team member per review point.
+Runs after all tasks complete. Can also be triggered manually mid-stream by the user for an early integration check. Fresh team member per review.
 
 **Sees:** Entire codebase diff from plan start, the running application in its current state, the full spec/design doc.
 
@@ -353,23 +353,36 @@ When holistic review fails, it produces a remediation plan. Remediation tasks go
 
 A task that touches both frontend and backend (e.g., "add an endpoint and wire it into the UI") needs evaluation from multiple domains.
 
-**The Evaluation block supports multiple domains:**
+**The Evaluation block supports multiple domains.** It uses a fenced YAML block with a fixed schema so scripts can parse it deterministically:
 
-```markdown
+````markdown
 ### Task 5: Wire district data API to city visualization
 
-**Evaluation:**
-- Domains: [frontend, backend]
-- Task criteria:
-    backend:
-      - GET /api/districts returns all 6 districts with unlock counts
-      - Response matches DistrictResponse schema
-    frontend:
-      - City visualization fetches from API, not hardcoded data
-      - Loading state shown while fetching
-      - Error state if API unavailable
-- Threshold: 7/10 per dimension across both domains
+```eval
+domains: [frontend, backend]
+criteria:
+  backend:
+    - id: api-districts-response
+      check: "GET /api/districts returns all 6 districts with unlock counts"
+    - id: api-districts-schema
+      check: "Response matches DistrictResponse schema"
+  frontend:
+    - id: ui-fetches-api
+      check: "City visualization fetches from API, not hardcoded data"
+    - id: ui-loading-state
+      check: "Loading state shown while fetching"
+    - id: ui-error-state
+      check: "Error state if API unavailable"
+thresholds: {}
 ```
+````
+
+**Evaluation block schema rules:**
+- Always a fenced code block with language tag `eval` (machine-parseable YAML)
+- `domains`: array of domain names matching keys in `orchestrate.json`
+- `criteria`: keyed by domain. Each criterion has a stable `id` (snake_case, unique within task) and a human-readable `check` description. Scripts use `id` for matching, not the `check` text.
+- `thresholds`: optional per-dimension overrides (empty = use domain defaults from orchestrate.json)
+- `resolve-domains.sh` parses this block from the plan/bean body by extracting the `eval` fenced block
 
 **How the orchestrator handles multi-domain evaluation:**
 
@@ -540,7 +553,8 @@ MERGE across providers: minimum score per dimension wins
 MERGE across domains: union of all dimension scores
   - Frontend dimensions scored by frontend evaluators only
   - Backend dimensions scored by backend evaluators only
-  - Shared dimensions (Spec Fidelity) scored by all, minimum wins
+  - No shared dimensions — all dimensions are domain-scoped
+    (domain_spec_fidelity in frontend ≠ domain_spec_fidelity in backend)
   - Each domain must independently meet its own thresholds
 
 Append to bean's Evaluation Log:
@@ -587,11 +601,25 @@ CONVERGED (finding-stability convergence, inspired by correctless):
   - All task criteria pass
   This prevents lucky single passes. If the second evaluation
   introduces new failures or regressions, convergence resets.
-  → Mark task bean as completed → next task
+  → Mark task bean as completed
+  → Next task
+
+After ALL tasks complete:
+  → Run Holistic Review Protocol
+  → If holistic review fails, handle remediation before finishing
+
+The user can also manually trigger holistic review mid-stream
+if they want an early integration check.
 
 PASS (first time, all thresholds met):
   → Re-evaluate to confirm stability → step 3
   → This confirmation pass is NOT optional
+
+PASS_REGRESSED (passed but new failures or score drops vs prior pass):
+  → Convergence resets — this is NOT a consecutive pass
+  → Dispatch FRESH implementer with regressed dimensions highlighted
+  → "Regression detected: craft dropped from 8 to 6. Fix regression."
+  → Go to step 1
 
 FAIL + dispatches < max_dispatches_per_task:
   → Dispatch FRESH implementer with:
@@ -615,7 +643,7 @@ DISPATCHES EXCEEDED (dispatches >= max_dispatches_per_task):
 2. **Fresh implementer on each iteration.** Not the same agent asked to "fix things." Fresh context with the evaluator's feedback injected.
 3. **Merged evaluator scores are final.** The orchestrator checks thresholds mechanically — no judgment call on whether a 6 is "close enough to 7."
 4. **No skipping runtime** for tasks that have a runtime command. If the Evaluation block specifies a domain with runtime configured, the evaluator MUST launch it and inspect.
-5. **Escalate, don't force.** If max iterations reached without passing, stop and ask the human. Never silently lower thresholds.
+5. **Escalate, don't force.** If dispatch budget exceeded without convergence, stop and ask the human. Never silently lower thresholds.
 6. **Evaluator gets previous scores.** On iteration 2+, the evaluator sees all prior scorecards to track improvement/regression. If scores regress, flag it.
 7. **Each domain evaluated independently.** Frontend evaluators only score frontend dimensions. Backend evaluators only score backend dimensions. A frontend pass does not compensate for a backend fail.
 8. **Multi-domain runtime ordering.** If one domain depends on another at runtime (frontend calls backend API), start the dependency first. The Evaluation block should document this: `Runtime dependency: backend must be running before frontend evaluation.`
@@ -864,8 +892,8 @@ All scripts operate on a standard scorecard format. Evaluator team members MUST 
     "domain_spec_fidelity": { "score": 8, "evidence": "All task criteria met except...", "threshold": 8 }
   },
   "criteria": [
-    { "name": "Districts render as soft-edged circles", "pass": true, "evidence": "Screenshot shows gradient edges" },
-    { "name": "Zone radius grows with unlock count", "pass": false, "evidence": "Radius static across different unlock levels" }
+    { "id": "soft-edged-circles", "pass": true, "evidence": "Screenshot shows gradient edges" },
+    { "id": "zone-radius-grows", "pass": false, "evidence": "Radius static across different unlock levels" }
   ],
   "antipatterns_detected": [],
   "guidance": "Fix craft: spacing between district labels needs consistent 16dp gap. Fix zone radius: must recalculate on data change.",
@@ -877,8 +905,8 @@ All scripts operate on a standard scorecard format. Evaluator team members MUST 
 - `dimensions` keys must be snake_case and match the domain template's dimension names exactly
 - `score` must be integer 1-10
 - `evidence` is required for every dimension — empty string is a schema violation
-- `criteria` entries must match the task's Evaluation block criteria verbatim
-- `estimated_cost_usd` tracks per-evaluation cost for circuit breaker
+- `criteria[].id` must match the task's Evaluation block criteria `id` exactly
+- `dispatch_count` is always 1 for individual scorecards (used by orchestrator for budget tracking)
 
 **Merged scorecard** (output of `merge-scorecards.sh`):
 
@@ -893,15 +921,15 @@ All scripts operate on a standard scorecard format. Evaluator team members MUST 
         "craft": { "score": 5, "threshold": 7, "provider_scores": {"claude": 6, "codex": 5} }
       },
       "criteria": [
-        { "name": "Districts render as soft-edged circles", "pass": true },
-        { "name": "Zone radius grows with unlock count", "pass": false }
+        { "id": "soft-edged-circles", "pass": true },
+        { "id": "zone-radius-grows", "pass": false }
       ]
     },
     "backend": { ... }
   },
   "verdict": "FAIL",
   "failing_dimensions": ["frontend.craft", "frontend.visual_quality"],
-  "failing_criteria": ["Zone radius grows with unlock count"],
+  "failing_criteria": ["zone-radius-grows"],
   "disagreements": [
     { "dimension": "frontend.visual_quality", "spread": 1, "scores": {"claude": 7, "codex": 6} }
   ],
@@ -1107,16 +1135,25 @@ All scripts live in `scripts/`. They accept JSON/structured input and produce JS
 Merge multiple scorecards into one. Minimum score per dimension wins.
 
 ```
-Input:  JSON array of scorecards on stdin
-        [{"domain":"frontend","provider":"claude","scores":{"visual_quality":7,"craft":5}},
-         {"domain":"frontend","provider":"codex","scores":{"visual_quality":6,"craft":7}}]
+Input:  JSON array of individual scorecards on stdin (canonical scorecard format)
+        [{"domain":"frontend","provider":"claude",
+          "dimensions":{"visual_quality":{"score":7,"evidence":"...","threshold":7},
+                        "craft":{"score":5,"evidence":"...","threshold":7}},
+          "criteria":[{"name":"...","pass":true,"evidence":"..."}]},
+         {"domain":"frontend","provider":"codex",
+          "dimensions":{"visual_quality":{"score":6,"evidence":"...","threshold":7},
+                        "craft":{"score":7,"evidence":"...","threshold":7}},
+          "criteria":[...]}]
 
-Output: Merged scorecard JSON on stdout
-        {"frontend":{"visual_quality":6,"craft":5},"backend":{...}}
+Output: Merged scorecard JSON on stdout (merged scorecard format)
+        Uses the canonical merged scorecard schema defined in
+        the Scorecard JSON Schema section.
 
 Also:   Disagreements (score differs by 3+ between providers) on stderr
         DISAGREEMENT frontend.visual_quality: claude=7 codex=4
 ```
+
+Input MUST conform to the individual scorecard schema. The script validates and rejects malformed input (exit 2).
 
 #### `check-thresholds.sh`
 
@@ -1143,9 +1180,8 @@ Determine if evaluation has converged based on finding-stability (inspired by co
 ```
 Input:  --current <current-verdict.json>
         --history <eval-history.json>      (all prior verdicts)
-        --max-iterations 15
-        --max-dispatches 60                  (from orchestrate.json)
-        --current-dispatches 12              (accumulated dispatches for this task)
+        --max-dispatches 60                (from orchestrate.json)
+        --current-dispatches 12            (accumulated dispatches for this task)
 
 Output: Convergence verdict on stdout
         {"status":"CONVERGED"}              two consecutive stable passes
@@ -1153,12 +1189,10 @@ Output: Convergence verdict on stdout
         {"status":"PASS_REGRESSED",         pass but new failures or
          "regressions":["craft"]}            score drops vs prior pass
         {"status":"FAIL","iteration":3}     below threshold
-        {"status":"ESCALATE","iteration":15,
-         "reason":"max iterations reached"}
-        {"status":"COST_EXCEEDED",
+        {"status":"DISPATCHES_EXCEEDED",
          "dispatches":62,"budget":60}
 
-Exit:   0 = CONVERGED, 1 = FAIL/PASS_PENDING/PASS_REGRESSED, 2 = ESCALATE/COST_EXCEEDED
+Exit:   0 = CONVERGED, 1 = FAIL/PASS_PENDING/PASS_REGRESSED, 2 = DISPATCHES_EXCEEDED
 ```
 
 #### `parse-eval-log.sh`
@@ -1285,7 +1319,7 @@ Use the script's output to configure evaluators. Do NOT resolve domains manually
 After receiving evaluator scorecards, you MUST run:
   merge-scorecards.sh < scorecards.json
   check-thresholds.sh --scorecard merged.json --config orchestrate.json --criteria criteria.json
-  check-convergence.sh --current verdict.json --history history.json --max-dispatches 60 --current-dispatches N
+  check-convergence.sh --current verdict.json --history history.json --max-dispatches N --current-dispatches M
 Act on the scripts' verdicts. Do NOT compute merges, thresholds, or convergence yourself.
 </HARD-GATE>
 
@@ -1296,7 +1330,7 @@ Do NOT skip logging. Do NOT write the log entry manually.
 </HARD-GATE>
 
 <HARD-GATE>
-If check-convergence.sh returns ESCALATE (exit 2), you MUST stop and ask the human.
+If check-convergence.sh returns DISPATCHES_EXCEEDED (exit 2), you MUST stop and ask the human.
 Do NOT continue iterating. Do NOT lower thresholds. Do NOT rationalize.
 </HARD-GATE>
 
@@ -1466,9 +1500,11 @@ Not forked (not essential for fiddle): `write-skill`, `receive-review`, `using-s
 
 | File | Change |
 |---|---|
-| `skills/develop/SKILL.md` | Rewrite: single execution mode with evaluator loop. Drop swarm/sequential/subagent mode split. Add attended mode gate. Convergence-based iteration. |
+| `skills/develop/SKILL.md` | Rewrite: single execution mode with evaluator loop. Drop swarm/sequential/subagent mode split. Add attended mode gate. Convergence-based iteration. Holistic review checkpoints wired into per-task loop. |
 | `skills/deliver/SKILL.md` | Evolve step enriched to update calibration files + antipatterns. |
-| `orchestrate.json` | New `evaluators` section. |
+| `skills/orchestrate/SKILL.md` | Remove `--execution` flag and execution mode selection. Simplify develop invocation to single mode. Remove `develop.execution` config reference. |
+| `hooks/dispatch-provider.sh` | Update provider context template path — current path `skills/develop-swarm/roles/provider-context.md` will be deleted with swarm. Move template to `skills/develop/provider-context.md`. |
+| `orchestrate.json` | New `evaluators` section. Remove `develop.execution` key. |
 
 ### Deleted Files
 
@@ -1546,7 +1582,6 @@ The current develop phase has three execution modes (subagent-driven, sequential
       }
     },
     "holistic": {
-      "frequency": "every_3_tasks",
       "providers": ["claude", "codex"],
       "max_iterations": 3,
       "runtime": ["flock /tmp/eval-flutter.lock flutter run -d chrome --web-port=8080"],
@@ -1616,7 +1651,7 @@ DEVELOP (per task, sequential)
   │    MAX REACHED → escalate to human                           │
   └──────────────────────────────────────────────────────────────┘
 
-HOLISTIC REVIEW (every N tasks + after all tasks)
+HOLISTIC REVIEW (after all tasks + on manual trigger)
   ┌──────────────────────────────────────────────────────────────┐
   │ Fresh team member(s), multi-provider                         │
   │ - Start ALL domain runtimes (backends first, then frontends) │
@@ -1624,7 +1659,7 @@ HOLISTIC REVIEW (every N tasks + after all tasks)
   │ - Cross-domain integration check (frontend ↔ backend)        │
   │ - Spec coverage matrix (all requirements, all domains)       │
   │ - Holistic dimensions scored                                 │
-  │ - PASS → continue                                            │
+  │ - PASS → continue to finish                                  │
   │ - FAIL → remediation tasks (with domain-specific Evaluation  │
   │          blocks) → per-task loop → re-review                 │
   │ - Max 3 holistic iterations → escalate                       │
