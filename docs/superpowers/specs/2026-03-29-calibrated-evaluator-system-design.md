@@ -295,7 +295,7 @@ Projects customize via `orchestrate.json`:
 
 **Domain resolution:** Each task's Evaluation block specifies a `Domain` field (e.g., `frontend`). The orchestrator resolves this to the matching key in `evaluators.domains` in `orchestrate.json`. If no match, falls back to `evaluator-general.md` with no runtime.
 
-**No evaluator config at all:** If a project has no `evaluators` section in `orchestrate.json`, the develop phase uses `evaluator-general.md` with no runtime, no multi-provider, and default thresholds (6 on all dimensions). There is no superpowers fallback — fiddle is self-contained.
+**No evaluator config at all:** If a project has no `evaluators` section in `orchestrate.json`, the develop phase uses `evaluator-general.md` with no runtime, no multi-provider, and the template's own default thresholds (Correctness: 7, Domain Spec Fidelity: 8, Code Quality: 6). There is no superpowers fallback — fiddle is self-contained.
 
 **Team member lifecycle:** Evaluator team members are created fresh per task and torn down after the task's evaluation loop completes (converged or escalated). They do not persist between tasks.
 
@@ -331,6 +331,8 @@ Runs after all tasks complete. Can also be triggered manually mid-stream by the 
 
 Note: Holistic spec fidelity is a separate dimension from domain spec fidelity. Task evaluators score domain spec fidelity (task requirements vs task implementation). The holistic reviewer scores holistic spec fidelity (full design doc vs full implementation). These are never merged — they are different dimensions scored at different levels.
 
+All holistic dimensions require full 1-10 scoring scales with no gaps, same as task evaluator dimensions. These scales are defined in `skills/develop/holistic-review.md` (the foundational skill for the holistic reviewer role).
+
 **Produces a spec coverage matrix:**
 
 ```
@@ -345,7 +347,7 @@ Seed elements in empty dists  | Missing  | Not visible in screenshots
 - "Weak" items flagged for human judgment
 - Matrix is available at evolve step for human audit
 
-When holistic review fails, it produces a remediation plan. Remediation tasks go through the standard implement → evaluate loop. Holistic reviewer runs again after remediation. Up to `max_holistic_iterations` (configurable, default 3). If still failing, escalate to human.
+When holistic review fails, it produces a remediation plan. Remediation tasks go through the standard implement → evaluate loop. Holistic reviewer runs again after remediation. Up to `evaluators.holistic.max_iterations` (configurable, default 3). If still failing, escalate to human.
 
 ---
 
@@ -374,6 +376,7 @@ criteria:
     - id: ui-error-state
       check: "Error state if API unavailable"
 thresholds: {}
+runtime_order: [backend, frontend]
 ```
 ````
 
@@ -382,6 +385,7 @@ thresholds: {}
 - `domains`: array of domain names matching keys in `orchestrate.json`
 - `criteria`: keyed by domain. Each criterion has a stable `id` (snake_case, unique within task) and a human-readable `check` description. Scripts use `id` for matching, not the `check` text.
 - `thresholds`: optional per-dimension overrides (empty = use domain defaults from orchestrate.json)
+- `runtime_order`: optional array specifying startup order when domains have runtime dependencies (e.g., backend must be running before frontend evaluation). If omitted, domains start in the order listed in `domains`.
 - `resolve-domains.sh` parses this block from the plan/bean body by extracting the `eval` fenced block
 
 **How the orchestrator handles multi-domain evaluation:**
@@ -684,7 +688,7 @@ DISPATCHES EXCEEDED (dispatches >= max_dispatches_per_task):
           - Each remediation task gets its own Evaluation block with domains
           - Remediation tasks go through the full per-task protocol
           - Holistic review runs again after all remediation tasks complete
-          - Up to max_holistic_iterations (default 3)
+          - Up to evaluators.holistic.max_iterations (default 3)
           - If still failing → escalate to human
 ```
 
@@ -701,6 +705,7 @@ If a session dies mid-execution (crash, timeout, user interrupt), the orchestrat
 | Task completion status | Bean status field | Yes |
 | Current task | Bean marked `in-progress` | Yes |
 | Evaluation history + iteration count | Bean body `## Evaluation Log` | Yes |
+| Accumulated dispatch count | Bean body `total_dispatches` in Evaluation Log | Yes |
 | Baseline commit for current task | Bean body `BASE_SHA` | Yes |
 | Calibration corrections | Calibration file on disk | Yes |
 | Antipattern additions | Antipattern file on disk | Yes |
@@ -741,25 +746,28 @@ All evaluation state is persisted on the bean. No ephemeral session state needed
 ```markdown
 ## Evaluation Log
 BASE_SHA: a7981ec
+total_dispatches: 4
 
 ### Iteration 1 (2026-03-29T14:23:00Z)
+dispatches: 2
 **frontend:**
 - Visual quality: 5/10 (FAIL)
 - Craft: 6/10 (FAIL)
 - Functionality: 7/10
-- Spec fidelity: 4/10 (FAIL)
+- Domain spec fidelity: 4/10 (FAIL)
 **Guidance:** "Sprites not loading, fallback rectangles visible..."
 
 ### Iteration 2 (2026-03-29T14:31:00Z)
+dispatches: 2
 **frontend:**
 - Visual quality: 7/10
 - Craft: 7/10
 - Functionality: 7/10
-- Spec fidelity: 6/10 (FAIL)
+- Domain spec fidelity: 6/10 (FAIL)
 **Guidance:** "Sprites load but zone radius doesn't grow..."
 ```
 
-On restart, the orchestrator reads this log and resumes at iteration 3 with full history. The fresh implementer gets all prior scorecards as context.
+`total_dispatches` is updated by `append-eval-log.sh` after each iteration. On restart, `parse-eval-log.sh` reads it so the circuit breaker continues from the correct count.
 
 ---
 
@@ -931,7 +939,7 @@ All scripts operate on a standard scorecard format. Evaluator team members MUST 
   "failing_dimensions": ["frontend.craft", "frontend.visual_quality"],
   "failing_criteria": ["zone-radius-grows"],
   "disagreements": [
-    { "dimension": "frontend.visual_quality", "spread": 1, "scores": {"claude": 7, "codex": 6} }
+    { "dimension": "frontend.visual_quality", "spread": 3, "scores": {"claude": 8, "codex": 5} }
   ],
   "total_dispatches": 2
 }
@@ -987,7 +995,21 @@ Supported check types:
 - `tcp` — Poll port until connection accepted
 - `command` — Run a command, wait for exit 0
 
-If no `ready_check` specified, falls back to `tcp` on the port parsed from the runtime command.
+If no `ready_check` specified, falls back to `tcp` on port 8080.
+
+**For parallel runtime slots:** `ready_check` must be an array matching the `runtime` array length, one check per slot:
+
+```json
+{
+  "runtime": ["PORT=8080 go run ./cmd/server", "PORT=8081 go run ./cmd/server"],
+  "ready_check": [
+    { "type": "http", "url": "http://localhost:8080/healthz", "timeout_ms": 15000 },
+    { "type": "http", "url": "http://localhost:8081/healthz", "timeout_ms": 15000 }
+  ]
+}
+```
+
+A single `ready_check` object (not array) applies to all slots — use only when the runtime array has one element.
 
 #### Default and Project-Specific Configurations
 
@@ -1041,7 +1063,8 @@ Evaluator uses `curl`/`httpie` for HTTP verification, `go-dev-mcp` where availab
 `start-runtimes.sh` exit codes distinguish these:
 - Exit 0: runtime started and ready
 - Exit 1: app failed to start (implementation bug — counts as evaluation failure)
-- Exit 3: harness failure (port conflict, missing dependency, environment issue — does NOT count against iteration cap)
+- Exit 2: invalid input (missing config, bad command — same convention as other scripts)
+- Exit 3: harness failure (port conflict, missing dependency, environment issue — does NOT count against dispatch budget)
 
 On exit 3, the orchestrator retries startup once. If still failing, escalates to human with the harness error, not an evaluation failure.
 
@@ -1139,7 +1162,7 @@ Input:  JSON array of individual scorecards on stdin (canonical scorecard format
         [{"domain":"frontend","provider":"claude",
           "dimensions":{"visual_quality":{"score":7,"evidence":"...","threshold":7},
                         "craft":{"score":5,"evidence":"...","threshold":7}},
-          "criteria":[{"name":"...","pass":true,"evidence":"..."}]},
+          "criteria":[{"id":"...","pass":true,"evidence":"..."}]},
          {"domain":"frontend","provider":"codex",
           "dimensions":{"visual_quality":{"score":6,"evidence":"...","threshold":7},
                         "craft":{"score":7,"evidence":"...","threshold":7}},
@@ -1252,7 +1275,9 @@ Output: Full config per domain JSON on stdout
           "stack_agents":["flutter-expert"]},
          {"domain":"backend",...}]
 
-Exit:   0 = all domains resolved, 1 = unknown domain (falls back to general)
+Exit:   0 = all domains resolved (includes fallbacks to general)
+        Each resolved domain includes "resolved_via": "config" or "fallback"
+        1 = invalid input (missing config file, malformed domains list)
 ```
 
 #### `start-runtimes.sh`
@@ -1557,7 +1582,8 @@ The current develop phase has three execution modes (subagent-driven, sequential
           "brand_consistency": {
             "description": "Matches style guide and brand bible",
             "threshold": 7,
-            "reference": "docs/DESIGN_SYSTEM.md"
+            "reference": "docs/DESIGN_SYSTEM.md",
+            "scale": "docs/evaluator-scale-brand-consistency.md"
           }
         },
         "thresholds": {
@@ -1748,7 +1774,7 @@ Add runtime evaluation — evaluators launch and interact with the running app.
 - Example project-specific evaluator configs documented (Flutter/marionette, Go/go-dev-mcp, Wails/Svelte) — applied to target project repos, not committed to fiddle
 - runtime_agent and stack_agents defined as protocol elements in evaluate skill
 
-**Test:** Run an attended evaluation on a Flutter frontend task in `~/wrk/next`. Verify: evaluator launches app, takes screenshots via Playwright MCP, scores visual quality based on actual rendered output, catches the kind of failures the City Visualization Redesign exhibited.
+**Test:** Run an attended evaluation on a Flutter frontend task in `~/wrk/next`. Verify: evaluator launches app, takes screenshots via marionette MCP, scores visual quality based on actual rendered output, catches the kind of failures the City Visualization Redesign exhibited.
 
 ### Milestone 3: Multi-Domain Evaluation
 
