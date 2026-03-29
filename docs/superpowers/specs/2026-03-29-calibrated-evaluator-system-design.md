@@ -47,8 +47,8 @@ The scoring/threshold/iteration machinery. Never changes per project.
 
 - How to score (1-10 per dimension)
 - How thresholds work (all dimensions must meet minimum)
-- Convergence-based stopping (two consecutive passes with no new issues = converged)
-- Safety cap at `max_eval_iterations` (default 15)
+- Convergence-based stopping (finding-stability: two consecutive evaluations with no new failing dimensions and no score regressions = converged. Inspired by correctless multi-round convergence auditing.)
+- Safety cap at `max_dispatches_per_task` (default 60 dispatches, where dispatches = providers × domains × iterations)
 - Distrust instructions ("verify independently, don't trust implementer's claims")
 - Scorecard format and reporting rules
 - Escalation protocol (max iterations reached → stop, report to human)
@@ -145,28 +145,30 @@ Default threshold: 8
     Keyboard navigation works. Screen reader compatible.
 ```
 
-**Spec Fidelity** — Does the implementation match what was specified?
+**Domain Spec Fidelity** — Does this task's implementation match the task-level spec?
 Default threshold: 8
 
 ```
- 1  Wrong feature: Built something entirely different from spec.
+ 1  Wrong feature: Built something entirely different from task spec.
  2  Wrong approach: Right feature, fundamentally wrong implementation strategy.
- 3  Major gaps: Core spec requirements missing. What exists may be correct
-    but the feature is incomplete.
- 4  Partial: ~50% of spec requirements implemented. Missing pieces noticeable.
- 5  Most there: ~70% of spec requirements. Missing pieces are secondary
+ 3  Major gaps: Core task requirements missing. What exists may be correct
+    but the task is incomplete.
+ 4  Partial: ~50% of task requirements implemented. Missing pieces noticeable.
+ 5  Most there: ~70% of task requirements. Missing pieces are secondary
     but a careful reviewer would catch them.
- 6  Functional coverage: All primary requirements met. Secondary requirements
+ 6  Functional coverage: All primary task requirements met. Secondary requirements
     (edge cases, error states, responsive behavior) partially covered.
- 7  Good coverage: All requirements met. Some implemented minimally
+ 7  Good coverage: All task requirements met. Some implemented minimally
     (letter of the spec, not spirit).
- 8  Faithful: Implementation matches spec in both letter and spirit.
+ 8  Faithful: Implementation matches task spec in both letter and spirit.
     Design intent preserved.
- 9  Complete: Every spec requirement fully implemented. No drift.
-    Implementation captures nuances of the design.
+ 9  Complete: Every task requirement fully implemented. No drift.
+    Implementation captures nuances of the task description.
 10  Exceeds spec: All requirements met and implementation improves on
-    spec where the spec was ambiguous or underspecified.
+    spec where the task description was ambiguous or underspecified.
 ```
+
+Note: This is the domain-local version scored by task evaluators. The holistic reviewer scores a separate **Holistic Spec Fidelity** dimension that evaluates the entire implementation against the full design doc (see Holistic Dimensions).
 
 #### Backend Dimensions
 
@@ -241,7 +243,7 @@ Default threshold: 7
     Errors don't cascade across services.
 ```
 
-**Spec Fidelity** — Same scale as frontend spec fidelity (shared across all domains).
+**Domain Spec Fidelity** — Same scale as frontend domain spec fidelity.
 Default threshold: 8
 
 #### General Dimensions
@@ -251,7 +253,7 @@ For tasks that don't fit a specific domain (scripts, configuration, tooling).
 **Correctness** — Same scale as backend correctness.
 Default threshold: 7
 
-**Spec Fidelity** — Same scale as frontend/backend spec fidelity.
+**Domain Spec Fidelity** — Same scale as frontend/backend domain spec fidelity.
 Default threshold: 8
 
 **Code Quality** — Is the code clean, maintainable, and idiomatic?
@@ -293,7 +295,7 @@ Projects customize via `orchestrate.json`:
 
 **Domain resolution:** Each task's Evaluation block specifies a `Domain` field (e.g., `frontend`). The orchestrator resolves this to the matching key in `evaluators.domains` in `orchestrate.json`. If no match, falls back to `evaluator-general.md` with no runtime.
 
-**No evaluator config at all:** If a project has no `evaluators` section in `orchestrate.json`, the develop phase falls back to the current superpowers behavior (spec-reviewer → code-quality-reviewer). The evaluator system is opt-in — projects adopt it by adding the config.
+**No evaluator config at all:** If a project has no `evaluators` section in `orchestrate.json`, the develop phase uses `evaluator-general.md` with no runtime, no multi-provider, and default thresholds (6 on all dimensions). There is no superpowers fallback — fiddle is self-contained.
 
 **Team member lifecycle:** Evaluator team members are created fresh per task and torn down after the task's evaluation loop completes (converged or escalated). They do not persist between tasks.
 
@@ -323,9 +325,11 @@ Runs at configured checkpoints — every N tasks and after all tasks complete. F
 |---|---|
 | Integration | Do the pieces work together? Visible seams? |
 | Coherence | Does the whole feel like one system or a patchwork? |
-| Spec fidelity (holistic) | Does the full result match the design doc's vision? |
+| Holistic spec fidelity | Does the full result match the design doc's vision? (Distinct from domain-local spec fidelity scored by task evaluators.) |
 | Polish | Would you ship this? Or does it feel AI-generated? |
 | Runtime health | App launches cleanly, no console errors, responsive |
+
+Note: Holistic spec fidelity is a separate dimension from domain spec fidelity. Task evaluators score domain spec fidelity (task requirements vs task implementation). The holistic reviewer scores holistic spec fidelity (full design doc vs full implementation). These are never merged — they are different dimensions scored at different levels.
 
 **Produces a spec coverage matrix:**
 
@@ -412,7 +416,7 @@ The `runtime` field is always an array of commands:
 
 All evaluators receive the same command. They share one resource instance. Coordination is handled by the command itself — `flock` ensures evaluators wait their turn. One port, one emulator, simple.
 
-Use `flock` (or equivalent locking mechanism) when:
+Use `flock` (or equivalent locking mechanism, e.g., `shlock` on BSD) when:
 - Resources are scarce (single emulator, single GPU)
 - The app has side effects that conflict across instances (shared database, shared state)
 - You want simpler configuration
@@ -575,14 +579,21 @@ ALL dimensions >= threshold across ALL domains?
 ALL task criteria pass across ALL domains?
 No known antipatterns detected?
 
-CONVERGED (second consecutive pass, or all scores >= threshold+2):
-  → Mark task bean as completed
-  → Next task
+CONVERGED (finding-stability convergence, inspired by correctless):
+  Convergence requires TWO consecutive passing evaluations where:
+  - All dimensions >= threshold across all domains
+  - No new failing dimensions compared to prior evaluation
+  - No score regressions (no dimension scored lower than prior pass)
+  - All task criteria pass
+  This prevents lucky single passes. If the second evaluation
+  introduces new failures or regressions, convergence resets.
+  → Mark task bean as completed → next task
 
-PASS (first time):
-  → Re-evaluate once more to confirm convergence → step 3
+PASS (first time, all thresholds met):
+  → Re-evaluate to confirm stability → step 3
+  → This confirmation pass is NOT optional
 
-FAIL + iteration < max_eval_iterations:
+FAIL + dispatches < max_dispatches_per_task:
   → Dispatch FRESH implementer with:
       - Merged scorecard (all domains)
       - Per-domain guidance (which domain failed and why)
@@ -590,10 +601,10 @@ FAIL + iteration < max_eval_iterations:
          Fix: spacing between district labels."
   → Go to step 1
 
-FAIL + iteration >= max_eval_iterations:
+DISPATCHES EXCEEDED (dispatches >= max_dispatches_per_task):
   → ESCALATE to human
-    "Task X failed after N evaluations.
-     Latest scores: [full scorecard across all domains].
+    "Task X used N dispatches (budget: M).
+     Iterations: K. Latest scores: [full scorecard across all domains].
      Failing domains: [list].
      Recommend: [action]"
 ```
@@ -835,6 +846,252 @@ Implementer model selection follows existing superpowers guidance (least powerfu
 
 ---
 
+### Scorecard JSON Schema
+
+All scripts operate on a standard scorecard format. Evaluator team members MUST output this format. Scripts validate against it.
+
+```json
+{
+  "task_id": "bean-id",
+  "iteration": 3,
+  "timestamp": "2026-03-29T14:31:00Z",
+  "provider": "claude",
+  "domain": "frontend",
+  "dimensions": {
+    "visual_quality": { "score": 7, "evidence": "Districts render with soft-edged zones...", "threshold": 7 },
+    "craft": { "score": 6, "evidence": "Spacing between labels inconsistent...", "threshold": 7 },
+    "functionality": { "score": 8, "evidence": "All interactions work, zoom smooth...", "threshold": 8 },
+    "domain_spec_fidelity": { "score": 8, "evidence": "All task criteria met except...", "threshold": 8 }
+  },
+  "criteria": [
+    { "name": "Districts render as soft-edged circles", "pass": true, "evidence": "Screenshot shows gradient edges" },
+    { "name": "Zone radius grows with unlock count", "pass": false, "evidence": "Radius static across different unlock levels" }
+  ],
+  "antipatterns_detected": [],
+  "guidance": "Fix craft: spacing between district labels needs consistent 16dp gap. Fix zone radius: must recalculate on data change.",
+  "dispatch_count": 1
+}
+```
+
+**Schema rules:**
+- `dimensions` keys must be snake_case and match the domain template's dimension names exactly
+- `score` must be integer 1-10
+- `evidence` is required for every dimension — empty string is a schema violation
+- `criteria` entries must match the task's Evaluation block criteria verbatim
+- `estimated_cost_usd` tracks per-evaluation cost for circuit breaker
+
+**Merged scorecard** (output of `merge-scorecards.sh`):
+
+```json
+{
+  "task_id": "bean-id",
+  "iteration": 3,
+  "domains": {
+    "frontend": {
+      "dimensions": {
+        "visual_quality": { "score": 6, "threshold": 7, "provider_scores": {"claude": 7, "codex": 6} },
+        "craft": { "score": 5, "threshold": 7, "provider_scores": {"claude": 6, "codex": 5} }
+      },
+      "criteria": [
+        { "name": "Districts render as soft-edged circles", "pass": true },
+        { "name": "Zone radius grows with unlock count", "pass": false }
+      ]
+    },
+    "backend": { ... }
+  },
+  "verdict": "FAIL",
+  "failing_dimensions": ["frontend.craft", "frontend.visual_quality"],
+  "failing_criteria": ["Zone radius grows with unlock count"],
+  "disagreements": [
+    { "dimension": "frontend.visual_quality", "spread": 1, "scores": {"claude": 7, "codex": 6} }
+  ],
+  "total_dispatches": 2
+}
+```
+
+---
+
+### Runtime Interaction Protocol
+
+Runtime verification requires evaluators to interact with the running application. This section defines the protocol — the mechanism is per-project, but the interface is standard.
+
+#### Protocol Elements
+
+**`runtime_agent`** — A project-specific agent definition (`.claude/agents/<name>.md` or equivalent) that knows how to interact with the running app for a specific stack. The evaluator delegates runtime interaction to this agent. It is a protocol participant, not just a config noun.
+
+The runtime agent MUST support these operations:
+- **launch**: Start the application using the runtime command
+- **ready_check**: Verify the app is ready for interaction (not just port open — DOM loaded, API responding, assets loaded)
+- **capture_screenshot**: Take a screenshot at a specific viewport size and state
+- **interact**: Click, type, navigate — exercise the application as a user would
+- **capture_evidence**: Collect console logs, network errors, performance metrics
+- **teardown**: Stop the application cleanly
+
+The evaluator dispatches the runtime agent as a subagent. The agent returns structured evidence:
+
+```json
+{
+  "screenshots": [
+    { "description": "City map default view", "viewport": "1280x720", "path": "/tmp/eval-evidence/screenshot-01.png" },
+    { "description": "Zoomed to district", "viewport": "1280x720", "path": "/tmp/eval-evidence/screenshot-02.png" }
+  ],
+  "interactions": [
+    { "action": "click district 'Arts Quarter'", "result": "Zoom animation played, district centered" },
+    { "action": "pinch zoom to 0.5x", "result": "All districts visible, central park centered" }
+  ],
+  "console_errors": [],
+  "network_errors": [],
+  "ready_time_ms": 3200
+}
+```
+
+**`stack_agents`** — Project-specific agent definitions that provide stack expertise to the evaluator. Unlike `runtime_agent` (which interacts with the app), stack agents provide contextual knowledge. The evaluator may consult them for stack-specific quality signals.
+
+Stack agents are advisory — the evaluator includes their perspective when scoring but they do not produce scores themselves. They are loaded into the evaluator's context as reference material, not dispatched as subagents.
+
+#### Ready Check Contract
+
+`start-runtimes.sh` verifies readiness via a configurable check. Each domain's runtime config can specify a readiness check:
+
+```json
+{
+  "runtime": ["flutter run -d chrome --web-port=8080"],
+  "ready_check": {
+    "type": "http",
+    "url": "http://localhost:8080",
+    "expect_status": 200,
+    "timeout_ms": 60000,
+    "retry_interval_ms": 2000
+  }
+}
+```
+
+Supported check types:
+- `http` — Poll URL until expected status code
+- `tcp` — Poll port until connection accepted
+- `command` — Run a command, wait for exit 0
+
+If no `ready_check` specified, falls back to `tcp` on the port parsed from the runtime command.
+
+#### Shipped Evaluator Configurations
+
+Fiddle ships with evaluator configurations for specific stacks, directly usable in target projects:
+
+**Flutter Web** (for `~/wrk/next`):
+
+```json
+{
+  "template": "evaluator-frontend",
+  "runtime": ["flutter run -d chrome --web-port=8080"],
+  "runtime_agent": "playwright-expert",
+  "stack_agents": ["flutter-expert", "dart-expert"],
+  "ready_check": { "type": "http", "url": "http://localhost:8080", "timeout_ms": 60000 }
+}
+```
+
+Runtime agent (`playwright-expert`) uses Playwright MCP to take screenshots, click elements, navigate. Must have `@anthropic/mcp-playwright` or equivalent configured in project's `.mcp.json`.
+
+**Wails/Svelte** (for `~/wrk/crops`):
+
+```json
+{
+  "template": "evaluator-frontend",
+  "runtime": ["cd frontend && npm run dev -- --port 5173"],
+  "runtime_agent": "playwright-expert",
+  "stack_agents": ["svelte-expert"],
+  "ready_check": { "type": "http", "url": "http://localhost:5173", "timeout_ms": 30000 }
+}
+```
+
+**Go API** (for `~/wrk/next` and `~/wrk/crops` backends):
+
+```json
+{
+  "template": "evaluator-backend",
+  "runtime": ["PORT=8080 go run ./cmd/server"],
+  "runtime_agent": "rest-expert",
+  "stack_agents": ["go-expert", "postgres-expert"],
+  "ready_check": { "type": "http", "url": "http://localhost:8080/healthz", "timeout_ms": 15000 }
+}
+```
+
+Runtime agent (`rest-expert`) makes HTTP requests, checks response shapes, status codes, headers. Uses curl/httpie or MCP HTTP tools.
+
+#### Distinguishing App Failure from Harness Failure
+
+`start-runtimes.sh` exit codes distinguish these:
+- Exit 0: runtime started and ready
+- Exit 1: app failed to start (implementation bug — counts as evaluation failure)
+- Exit 3: harness failure (port conflict, missing dependency, environment issue — does NOT count against iteration cap)
+
+On exit 3, the orchestrator retries startup once. If still failing, escalates to human with the harness error, not an evaluation failure.
+
+---
+
+### Cost Circuit Breaker
+
+Cost is measured in **evaluator dispatches per task** — the total number of evaluator invocations for a single bean/task.
+
+One dispatch = one evaluator invocation (one provider scoring one domain). One iteration with 2 providers × 2 domains = 4 dispatches. A task that runs 5 iterations at that rate = 20 dispatches.
+
+```json
+{
+  "evaluators": {
+    "max_dispatches_per_task": 60
+  }
+}
+```
+
+This is the single circuit breaker. It naturally accounts for iterations, providers, and domains — all the cost multipliers compound into one number. `check-convergence.sh` receives `--max-dispatches` and `--current-dispatches` and returns `COST_EXCEEDED` when hit.
+
+The default (60) allows: 15 iterations × 2 providers × 2 domains, or 10 iterations × 3 providers × 2 domains, or any other combination that stays under 60. Projects tune this one number based on their provider count and domain count.
+
+**Controlling provider count per domain:** Each domain config specifies which providers evaluate it:
+
+```json
+{
+  "evaluators": {
+    "domains": {
+      "frontend": {
+        "providers": ["claude"],
+        ...
+      },
+      "backend": {
+        "providers": ["claude", "codex"],
+        ...
+      }
+    },
+    "holistic": {
+      "providers": ["claude", "codex", "gemini"],
+      ...
+    }
+  }
+}
+```
+
+If `providers` is omitted, defaults to `["claude"]` (single provider). This gives direct control over burn rate per domain:
+- Frontend: 1 provider → 1 dispatch per domain per iteration
+- Backend: 2 providers → 2 dispatches per domain per iteration
+- Holistic: 3 providers → 3 dispatches per review
+
+A task touching both frontend and backend = 3 dispatches per iteration (1 + 2). At 60 max dispatches, that's 20 iterations before the circuit breaker fires. Projects decide the tradeoff: more providers = better quality per iteration but fewer iterations before the cap.
+
+---
+
+### Locking Portability
+
+The spec's runtime coordination examples use `flock` for serialized access. `flock` is Linux-native and not available on macOS by default.
+
+**Solution:** Install `flock` via Nix in the development environment. Add `util-linux` to:
+- `~/wrk/fiddle/flake.nix` (fiddle's own dev shell)
+- `~/wrk/ai-devtools/flake.nix` (shared across all Claude/Codex-enabled environments)
+
+This ensures `flock` is available wherever fiddle's evaluator system runs. Projects that use fiddle inherit the dependency through `ai-devtools`.
+
+Alternative for environments without Nix: `scripts/lock.sh` wrapper that uses `flock` if available, falls back to `mkdir`-based locking.
+
+---
+
 ## Enforcement Model
 
 Two enforcement mechanisms, chosen by the nature of the operation:
@@ -883,20 +1140,27 @@ Exit:   0 = all pass, 1 = at least one fail
 
 #### `check-convergence.sh`
 
-Determine if evaluation has converged based on current + prior results.
+Determine if evaluation has converged based on finding-stability (inspired by correctless convergence auditing). Convergence requires two consecutive passing evaluations with no new failing dimensions and no score regressions.
 
 ```
 Input:  --current <current-verdict.json>
-        --history <eval-history.json>   (all prior verdicts)
+        --history <eval-history.json>      (all prior verdicts)
         --max-iterations 15
+        --max-dispatches 60                  (from orchestrate.json)
+        --current-dispatches 12              (accumulated dispatches for this task)
 
 Output: Convergence verdict on stdout
-        {"status":"CONVERGED"}          two consecutive passes
-        {"status":"PASS_PENDING"}       first pass, need confirmation
-        {"status":"FAIL","iteration":3} below threshold
-        {"status":"ESCALATE","iteration":15,"reason":"max iterations reached"}
+        {"status":"CONVERGED"}              two consecutive stable passes
+        {"status":"PASS_PENDING"}           first pass, need confirmation
+        {"status":"PASS_REGRESSED",         pass but new failures or
+         "regressions":["craft"]}            score drops vs prior pass
+        {"status":"FAIL","iteration":3}     below threshold
+        {"status":"ESCALATE","iteration":15,
+         "reason":"max iterations reached"}
+        {"status":"COST_EXCEEDED",
+         "dispatches":62,"budget":60}
 
-Exit:   0 = CONVERGED, 1 = FAIL/PASS_PENDING, 2 = ESCALATE
+Exit:   0 = CONVERGED, 1 = FAIL/PASS_PENDING/PASS_REGRESSED, 2 = ESCALATE/COST_EXCEEDED
 ```
 
 #### `parse-eval-log.sh`
@@ -1023,7 +1287,7 @@ Use the script's output to configure evaluators. Do NOT resolve domains manually
 After receiving evaluator scorecards, you MUST run:
   merge-scorecards.sh < scorecards.json
   check-thresholds.sh --scorecard merged.json --config orchestrate.json --criteria criteria.json
-  check-convergence.sh --current verdict.json --history history.json --max-iterations 15
+  check-convergence.sh --current verdict.json --history history.json --max-dispatches 60 --current-dispatches N
 Act on the scripts' verdicts. Do NOT compute merges, thresholds, or convergence yourself.
 </HARD-GATE>
 
@@ -1205,13 +1469,15 @@ The current develop phase has three execution modes (subagent-driven, sequential
 {
   "evaluators": {
     "attended": true,
-    "max_eval_iterations": 15,
+    "max_dispatches_per_task": 60,
     "domains": {
       "frontend": {
         "template": "evaluator-frontend",
+        "providers": ["claude"],
         "runtime": ["flock /tmp/eval-flutter.lock flutter run -d chrome --web-port=8080"],
         "runtime_agent": "playwright-expert",
         "stack_agents": ["flutter-expert", "dart-expert"],
+        "ready_check": { "type": "http", "url": "http://localhost:8080", "timeout_ms": 60000 },
         "calibration": "docs/evaluator-calibration-frontend.md",
         "antipatterns": "docs/antipatterns-frontend.md",
         "extra_dimensions": {
@@ -1225,23 +1491,26 @@ The current develop phase has three execution modes (subagent-driven, sequential
           "visual_quality": 7,
           "craft": 7,
           "functionality": 8,
-          "spec_fidelity": 8
+          "domain_spec_fidelity": 8
         }
       },
       "backend": {
         "template": "evaluator-backend",
+        "providers": ["claude", "codex"],
         "runtime": [
           "PORT=8080 go run ./cmd/server",
           "PORT=8081 go run ./cmd/server"
         ],
         "runtime_agent": "rest-expert",
         "stack_agents": ["go-expert", "postgres-expert"],
+        "ready_check": { "type": "http", "url": "http://localhost:8080/healthz", "timeout_ms": 15000 },
         "calibration": "docs/evaluator-calibration-backend.md",
         "antipatterns": "docs/antipatterns-backend.md"
       }
     },
     "holistic": {
       "frequency": "every_3_tasks",
+      "providers": ["claude", "codex"],
       "max_iterations": 3,
       "runtime": ["flock /tmp/eval-flutter.lock flutter run -d chrome --web-port=8080"],
       "runtime_agent": "playwright-expert",
@@ -1249,7 +1518,7 @@ The current develop phase has three execution modes (subagent-driven, sequential
       "dimensions": {
         "integration": { "threshold": 7 },
         "coherence": { "threshold": 7 },
-        "spec_fidelity": { "threshold": 8 },
+        "holistic_spec_fidelity": { "threshold": 8 },
         "polish": { "threshold": 6 },
         "runtime_health": { "threshold": 9 }
       }
@@ -1364,3 +1633,100 @@ Run N:  Stable calibration, comprehensive antipatterns
         → Periodic human spot-checks at evolve
         → System self-sustaining with accumulated project knowledge
 ```
+
+---
+
+## Implementation Milestones
+
+The full system is implemented in milestones. Each milestone produces a working, testable system. Later milestones layer on top of earlier ones.
+
+### Milestone 1: Core Loop — Single Evaluator, Single Domain
+
+Prove the implement → evaluate → converge loop works end-to-end with the simplest configuration.
+
+**Delivers:**
+- Fork discipline primitives from superpowers (TDD, verification, debugging, worktrees, finish-branch)
+- Fork and modify brainstorm skill (add calibration anchor extraction)
+- Fork and modify write-plan skill (add Evaluation blocks)
+- `skills/evaluate/SKILL.md` — evaluation protocol
+- `skills/evaluate/evaluator-general.md` — general domain template with full 1-10 scales
+- `skills/develop/SKILL.md` — rewritten develop skill with evaluator loop (single domain, single provider)
+- Core scripts: `check-thresholds.sh`, `check-convergence.sh`, `merge-scorecards.sh`, `append-eval-log.sh`, `parse-eval-log.sh`, `resolve-domains.sh`, `assess-git-state.sh`
+- Scorecard JSON schema enforced
+- `orchestrate.json` evaluator config (single domain, single provider)
+- Session restart/recovery
+- Circuit breaker (`max_dispatches_per_task`)
+- Delete `patch-superpowers/`, `develop-swarm/`, swarm scripts
+- Locking portability (`flock` via nix in `flake.nix` and `~/wrk/ai-devtools/flake.nix`)
+
+**Does NOT include:** runtime verification, multi-provider, multi-domain, holistic review, calibration files, antipatterns.
+
+**Test:** Run an attended evaluation cycle on a real task in `~/wrk/next` or `~/wrk/crops`. Verify: evaluator scores dimensions, thresholds are enforced by script, convergence works, restart recovers state, circuit breaker fires.
+
+### Milestone 2: Runtime Verification
+
+Add runtime evaluation — evaluators launch and interact with the running app.
+
+**Delivers:**
+- Runtime interaction protocol (runtime_agent, stack_agents as protocol elements)
+- `start-runtimes.sh`, `stop-runtimes.sh` with ready check contract
+- Harness failure vs app failure distinction (exit codes)
+- `skills/evaluate/evaluator-frontend.md` — Flutter frontend domain template with full 1-10 scales
+- `skills/evaluate/evaluator-backend.md` — Go API backend domain template with full 1-10 scales
+- Shipped evaluator configs: Flutter Web (for `~/wrk/next`), Go API (for `~/wrk/next` and `~/wrk/crops`), Wails/Svelte (for `~/wrk/crops`)
+- `skills/evaluate/runtime-evidence.md` — runtime evidence gathering instructions
+
+**Test:** Run an attended evaluation on a Flutter frontend task in `~/wrk/next`. Verify: evaluator launches app, takes screenshots via Playwright MCP, scores visual quality based on actual rendered output, catches the kind of failures the City Visualization Redesign exhibited.
+
+### Milestone 3: Multi-Domain Evaluation
+
+Tasks that span frontend + backend get evaluated by both domain evaluators.
+
+**Delivers:**
+- Multi-domain task handling in develop skill (domain resolution, runtime ordering)
+- Domain-local spec fidelity (separate from holistic)
+- `resolve-domains.sh` updated for multi-domain
+- Cross-domain merge semantics
+- Plan Evaluation blocks with multiple domains
+
+**Test:** Run a full-stack task (API endpoint + UI integration) through the evaluator loop. Verify: both domains evaluated independently, both must pass, feedback identifies which domain failed.
+
+### Milestone 4: Holistic Review
+
+Cross-task quality check at configurable checkpoints.
+
+**Delivers:**
+- Holistic reviewer protocol in develop skill
+- Holistic dimensions with full 1-10 scales (integration, coherence, holistic spec fidelity, polish, runtime health)
+- Spec coverage matrix (every requirement → Full/Weak/Missing + evidence)
+- Remediation task generation from coverage gaps
+- Holistic review frequency configuration
+
+**Test:** Run a 5+ task plan. Verify: holistic reviewer launches app, produces coverage matrix, catches cross-task integration issues, generates remediation tasks for gaps.
+
+### Milestone 5: Multi-Provider Evaluation
+
+Multiple LLM providers evaluate each task for diversity of judgment.
+
+**Delivers:**
+- Per-domain provider selection in `orchestrate.json`
+- Multi-provider dispatch (parallel or flock-coordinated)
+- Scorecard merging across providers (minimum per dimension)
+- Provider disagreement surfacing
+- Updated circuit breaker accounting for dispatch multiplier
+
+**Test:** Run evaluation with Claude + Codex on a backend task. Verify: both produce scorecards, merge uses minimum, disagreements highlighted in attended mode.
+
+### Milestone 6: Calibration and Evolve
+
+The compound learning loop.
+
+**Delivers:**
+- Project-specific calibration files
+- Calibration anchor extraction from specs (in brainstorm skill)
+- Attended mode with human correction → calibration encoding
+- Evolve step enriched for calibration + antipattern updates
+- Antipattern accumulation files loaded by implementer and evaluator
+- `attended: true/false` toggle in orchestrate.json
+
+**Test:** Run 3 attended cycles. Verify: human corrections are encoded as calibration anchors, antipatterns accumulate, evaluator judgment improves measurably across runs.
