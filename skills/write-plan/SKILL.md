@@ -118,7 +118,7 @@ thresholds: {}
 
 **Schema rules:**
 - `domains`: array of domain names (use `general` for non-frontend/backend tasks)
-- `criteria`: keyed by domain, each with stable `id` (snake_case) and `check` text
+- `criteria`: keyed by domain, each with stable `id` (kebab-case) and `check` text
 - `thresholds`: optional overrides (empty = use domain defaults)
 - Criterion IDs must be unique within the task, stable across edits
 
