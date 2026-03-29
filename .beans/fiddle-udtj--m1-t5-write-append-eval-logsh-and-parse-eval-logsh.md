@@ -1,10 +1,11 @@
 ---
 # fiddle-udtj
 title: 'M1-T5: Write append-eval-log.sh and parse-eval-log.sh'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:20:02Z
-updated_at: 2026-03-29T19:20:02Z
+updated_at: 2026-03-29T19:56:49Z
 parent: fiddle-yzzk
 ---
 
@@ -27,3 +28,7 @@ Steps:
 4. Write parse-eval-log.sh
 5. Run test — verify passes
 6. Commit
+
+## Summary of Changes
+
+Implemented append-eval-log.sh, parse-eval-log.sh, and test-eval-log.sh. append-eval-log.sh initializes and appends evaluation iterations to bean bodies. parse-eval-log.sh extracts base_sha, iteration_count, total_dispatches, last_verdict, last_guidance as JSON. 12/12 test assertions passing. Fixed macOS compatibility (replaced grep -oP with sed).

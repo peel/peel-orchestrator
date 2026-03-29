@@ -1,10 +1,11 @@
 ---
 # fiddle-vgig
 title: 'M1-T13: Fork write-plan skill with Evaluation blocks'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:20:46Z
-updated_at: 2026-03-29T19:20:46Z
+updated_at: 2026-03-29T20:27:39Z
 parent: fiddle-yzzk
 ---
 
@@ -22,3 +23,7 @@ Steps:
 3. Add Evaluation block section with eval YAML schema
 4. Update plan header to reference fiddle:develop
 5. Commit
+
+## Summary of Changes
+
+Forked writing-plans skill from superpowers 5.0.6 (GitHub upstream). 2 files: SKILL.md and plan-document-reviewer-prompt.md. Added Evaluation block requirement per task (fenced YAML eval blocks with domains, criteria, thresholds). Updated all cross-references to fiddle: namespace. Zero remaining superpowers references.

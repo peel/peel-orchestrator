@@ -1,10 +1,11 @@
 ---
 # fiddle-uvp2
 title: 'M1-T7: Write evaluator-general.md domain template'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:20:02Z
-updated_at: 2026-03-29T19:20:02Z
+updated_at: 2026-03-29T20:05:21Z
 parent: fiddle-yzzk
 ---
 
@@ -25,3 +26,7 @@ Steps:
 2. Write evaluator-general.md with all three dimensions, full 1-10 scales
 3. Verify line count and structure
 4. Commit
+
+## Summary of Changes
+
+Created skills/evaluate/evaluator-general.md with three dimensions: Correctness (threshold 7), Domain Spec Fidelity (threshold 8), Code Quality (threshold 6). Full 1-10 scales copied verbatim from design spec. 87 lines.

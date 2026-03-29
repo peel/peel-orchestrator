@@ -1,10 +1,11 @@
 ---
 # fiddle-mz3o
 title: 'M1-T1: Delete swarm infrastructure, move provider template'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:19:32Z
-updated_at: 2026-03-29T19:19:32Z
+updated_at: 2026-03-29T19:31:54Z
 parent: fiddle-yzzk
 ---
 
@@ -26,3 +27,6 @@ Steps:
 3. Delete swarm dirs and scripts
 4. Verify dispatch-provider.sh runs without error
 5. Commit
+
+## Summary of Changes
+Deleted swarm infrastructure (develop-swarm/, patch-superpowers/, 5 scripts). Moved provider-context.md to skills/develop/. Updated dispatch-provider.sh template path. Commit: bcd9928.

@@ -1,10 +1,11 @@
 ---
 # fiddle-1opk
 title: 'M1-T4: Write check-convergence.sh'
-status: done
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:19:32Z
-updated_at: 2026-03-29T19:19:32Z
+updated_at: 2026-03-29T19:48:24Z
 parent: fiddle-yzzk
 ---
 
@@ -26,3 +27,7 @@ Steps:
 3. Write script
 4. Run test — verify passes
 5. Commit
+
+## Summary of Changes
+
+Implemented check-convergence.sh and test-check-convergence.sh. Finding-stability convergence: two consecutive passing evaluations with no score regressions = CONVERGED. Five statuses: CONVERGED (exit 0), FAIL/PASS_PENDING/PASS_REGRESSED (exit 1), DISPATCHES_EXCEEDED (exit 2). 10/10 test assertions passing. Improved exit code capture pattern over plan spec.

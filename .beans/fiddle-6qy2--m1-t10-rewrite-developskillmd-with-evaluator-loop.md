@@ -1,11 +1,11 @@
 ---
 # fiddle-6qy2
 title: 'M1-T10: Rewrite develop/SKILL.md with evaluator loop'
-status: todo
+status: completed
 type: task
 priority: normal
 created_at: 2026-03-29T19:20:46Z
-updated_at: 2026-03-29T19:21:04Z
+updated_at: 2026-03-29T20:15:34Z
 parent: fiddle-yzzk
 blocked_by:
     - fiddle-mz3o
@@ -38,3 +38,7 @@ Steps:
 2. Write new version
 3. Verify structure (line count, HARD-GATE count, script references)
 4. Commit
+
+## Summary of Changes
+
+Rewrote skills/develop/SKILL.md from three-mode system to single evaluator loop (201 lines). Step 0: validate/worktree/config. Step 1: per-task implement→evaluate→converge loop. Step 2: finish-branch. 4 HARD-GATEs, all 5 scripts referenced, restart resilience, M1 simplifications noted.

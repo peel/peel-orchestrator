@@ -1,10 +1,11 @@
 ---
 # fiddle-vdfc
 title: 'M1-T6: Write assess-git-state.sh'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:20:02Z
-updated_at: 2026-03-29T19:20:02Z
+updated_at: 2026-03-29T20:03:07Z
 parent: fiddle-yzzk
 ---
 
@@ -26,3 +27,7 @@ Steps:
 3. Write script
 4. Run test — verify passes
 5. Commit
+
+## Summary of Changes
+
+Implemented assess-git-state.sh and test-assess-git-state.sh. Classifies git state as CLEAN (exit 0), DIRTY (exit 1), or CORRUPTED (exit 2) relative to a base SHA. 15/15 test assertions passing across 6 test cases. Fixed code review issues: invalid SHA validation, argument guard, robust filename parsing with cut -c4-.

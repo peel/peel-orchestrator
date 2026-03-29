@@ -1,10 +1,11 @@
 ---
 # fiddle-nkuw
 title: 'M1-T2: Fork discipline primitives from superpowers'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:19:32Z
-updated_at: 2026-03-29T19:19:32Z
+updated_at: 2026-03-29T19:34:30Z
 parent: fiddle-yzzk
 ---
 
@@ -25,3 +26,6 @@ Steps:
 4. Copy supporting files
 5. Verify frontmatter
 6. Commit
+
+## Summary of Changes
+Forked TDD, verification, debugging, worktrees, finish-branch from superpowers 5.0.6. Updated frontmatter to fiddle: namespace. Updated cross-references in debug skill. Copied testing-anti-patterns.md.

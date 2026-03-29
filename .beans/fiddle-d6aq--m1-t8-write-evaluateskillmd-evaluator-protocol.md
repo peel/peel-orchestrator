@@ -1,10 +1,11 @@
 ---
 # fiddle-d6aq
 title: 'M1-T8: Write evaluate/SKILL.md — evaluator protocol'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:20:02Z
-updated_at: 2026-03-29T19:20:02Z
+updated_at: 2026-03-29T20:08:31Z
 parent: fiddle-yzzk
 ---
 
@@ -25,3 +26,7 @@ Steps:
 1. Write the evaluator protocol skill
 2. Verify line count (100-150)
 3. Commit
+
+## Summary of Changes
+
+Created skills/evaluate/SKILL.md — evaluator protocol skill (138 lines). Covers: HARD-GATE for evidence, distrust rules, scoring instructions, criteria evaluation, antipattern checking, prior scorecard handling, canonical scorecard JSON schema, output contract.
