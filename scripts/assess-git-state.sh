@@ -7,7 +7,9 @@ BASE_SHA=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --base-sha) BASE_SHA="$2"; shift 2;;
+    --base-sha)
+      [[ $# -ge 2 ]] || { echo '{"error":"--base-sha requires a value"}' >&2; exit 2; }
+      BASE_SHA="$2"; shift 2;;
     *) echo "Unknown arg: $1" >&2; exit 2;;
   esac
 done
@@ -22,11 +24,17 @@ if git ls-files --unmerged | grep -q .; then
 fi
 
 # Check for uncommitted changes
-DIRTY_FILES=$(git status --porcelain 2>/dev/null | awk '{print $2}')
+DIRTY_FILES=$(git status --porcelain 2>/dev/null | cut -c4-)
 if [[ -n "$DIRTY_FILES" ]]; then
   FILES_JSON=$(echo "$DIRTY_FILES" | jq -R -s 'split("\n") | map(select(. != ""))')
   jq -n --argjson files "$FILES_JSON" '{"state":"DIRTY","uncommitted_files":$files}'
   exit 1
+fi
+
+# Validate base SHA exists
+if ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+  jq -n --arg sha "$BASE_SHA" '{"state":"CORRUPTED","reason":"base SHA not found","base_sha":$sha}'
+  exit 2
 fi
 
 # Clean — count commits ahead of base

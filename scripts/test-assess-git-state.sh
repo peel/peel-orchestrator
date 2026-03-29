@@ -77,6 +77,18 @@ OUTPUT=$(cd "$TMPDIR/repo" && "$SCRIPT_DIR/assess-git-state.sh" 2>/dev/null) || 
 assert_exit "missing arg → exit 2" 2 "$EXIT_CODE"
 assert_json "error message" ".error" "missing --base-sha" "$OUTPUT"
 
+echo "Test 5: Invalid base SHA → CORRUPTED"
+EXIT_CODE=0
+OUTPUT=$(cd "$TMPDIR/repo" && "$SCRIPT_DIR/assess-git-state.sh" --base-sha "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef") || EXIT_CODE=$?
+assert_exit "invalid SHA → exit 2" 2 "$EXIT_CODE"
+assert_json "corrupted state" ".state" "CORRUPTED" "$OUTPUT"
+assert_json "corrupted reason" ".reason" "base SHA not found" "$OUTPUT"
+
+echo "Test 6: --base-sha without value"
+EXIT_CODE=0
+OUTPUT=$(cd "$TMPDIR/repo" && "$SCRIPT_DIR/assess-git-state.sh" --base-sha 2>/dev/null) || EXIT_CODE=$?
+assert_exit "--base-sha no value → exit 2" 2 "$EXIT_CODE"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
