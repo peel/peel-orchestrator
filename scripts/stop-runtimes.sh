@@ -7,7 +7,9 @@ STATE_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --state) STATE_FILE="$2"; shift 2;;
+    --state)
+      [[ $# -ge 2 ]] || { echo '{"error":"--state requires a value"}' >&2; exit 2; }
+      STATE_FILE="$2"; shift 2;;
     *) echo '{"error":"unknown arg: '"$1"'"}' >&2; exit 2;;
   esac
 done
@@ -29,6 +31,14 @@ if [[ -z "$PIDS" ]]; then
   exit 0
 fi
 
+# Validate all PIDs are positive integers before proceeding
+for pid in $PIDS; do
+  if ! [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
+    echo '{"error":"invalid PID: '"$pid"'"}' >&2
+    exit 2
+  fi
+done
+
 # Send SIGTERM to each PID that is still alive
 for pid in $PIDS; do
   if kill -0 "$pid" 2>/dev/null; then
@@ -36,9 +46,9 @@ for pid in $PIDS; do
   fi
 done
 
-# Wait for processes to exit, with a 10-second fallback to SIGKILL
-DEADLINE=$(( $(date +%s) + 10 ))
+# Wait for each process to exit, with a per-PID 10-second fallback to SIGKILL
 for pid in $PIDS; do
+  DEADLINE=$(( $(date +%s) + 10 ))
   while kill -0 "$pid" 2>/dev/null; do
     if [[ $(date +%s) -ge $DEADLINE ]]; then
       kill -9 "$pid" 2>/dev/null || true

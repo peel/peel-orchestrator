@@ -108,5 +108,69 @@ EXIT_CODE=0
 assert_exit "already dead PID → exit 0" 0 "$EXIT_CODE"
 
 echo ""
+echo "=== Test 8: --state with no value → exit 2 ==="
+EXIT_CODE=0
+"$SCRIPT_DIR/stop-runtimes.sh" --state 2>/dev/null || EXIT_CODE=$?
+assert_exit "--state with no value → exit 2" 2 "$EXIT_CODE"
+
+echo ""
+echo "=== Test 9: Non-numeric PID → exit 2 ==="
+cat > "$TEST_TMPDIR/bad-pid-alpha.json" << 'EOF'
+[{"domain":"test","pid":"abc","port":0,"command":"sleep 9999"}]
+EOF
+EXIT_CODE=0
+"$SCRIPT_DIR/stop-runtimes.sh" --state "$TEST_TMPDIR/bad-pid-alpha.json" 2>/dev/null || EXIT_CODE=$?
+assert_exit "non-numeric PID → exit 2" 2 "$EXIT_CODE"
+
+echo ""
+echo "=== Test 10: Zero PID → exit 2 ==="
+cat > "$TEST_TMPDIR/bad-pid-zero.json" << 'EOF'
+[{"domain":"test","pid":0,"port":0,"command":"sleep 9999"}]
+EOF
+EXIT_CODE=0
+"$SCRIPT_DIR/stop-runtimes.sh" --state "$TEST_TMPDIR/bad-pid-zero.json" 2>/dev/null || EXIT_CODE=$?
+assert_exit "zero PID → exit 2" 2 "$EXIT_CODE"
+
+echo ""
+echo "=== Test 11: Negative PID → exit 2 ==="
+cat > "$TEST_TMPDIR/bad-pid-neg.json" << 'EOF'
+[{"domain":"test","pid":-1,"port":0,"command":"sleep 9999"}]
+EOF
+EXIT_CODE=0
+"$SCRIPT_DIR/stop-runtimes.sh" --state "$TEST_TMPDIR/bad-pid-neg.json" 2>/dev/null || EXIT_CODE=$?
+assert_exit "negative PID → exit 2" 2 "$EXIT_CODE"
+
+echo ""
+echo "=== Test 12: SIGKILL fallback — SIGTERM-ignoring process killed within ~12s ==="
+# Spawn a process that traps (ignores) SIGTERM
+bash -c 'trap "" TERM; sleep 9999' &
+STUBBORN_PID=$!
+sleep 0.3
+assert_true "SIGTERM-ignoring process started" "$(is_running "$STUBBORN_PID")"
+
+cat > "$TEST_TMPDIR/stubborn.json" << EOF
+[{"domain":"stubborn","pid":$STUBBORN_PID,"port":0,"command":"trap TERM sleep"}]
+EOF
+
+START_TIME=$(date +%s)
+EXIT_CODE=0
+"$SCRIPT_DIR/stop-runtimes.sh" --state "$TEST_TMPDIR/stubborn.json" 2>/dev/null || EXIT_CODE=$?
+END_TIME=$(date +%s)
+ELAPSED=$(( END_TIME - START_TIME ))
+
+assert_exit "SIGKILL fallback → exit 0" 0 "$EXIT_CODE"
+
+# Give a brief moment for kill -9 to take full effect
+sleep 0.5
+assert_true "stubborn process is dead after SIGKILL" "$([ "$(is_running "$STUBBORN_PID")" = "false" ] && echo "true" || echo "false")"
+
+# Verify it took roughly 10 seconds (between 8 and 15 to account for timing variance)
+if [[ $ELAPSED -ge 8 && $ELAPSED -le 15 ]]; then
+  PASS=$((PASS+1)); echo "  PASS: SIGKILL fallback took ~${ELAPSED}s (expected 8-15s)"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL: SIGKILL fallback took ${ELAPSED}s (expected 8-15s)"
+fi
+
+echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
