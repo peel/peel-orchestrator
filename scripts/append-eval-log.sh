@@ -3,7 +3,7 @@
 # Exit 0 = success, 1 = bean not found, 2 = invalid input.
 set -euo pipefail
 
-BEAN_ID="" INIT=false BASE_SHA="" ITERATION="" SCORECARD="" DISPATCHES="" GUIDANCE=""
+BEAN_ID="" INIT=false BASE_SHA="" ITERATION="" SCORECARD="" DISPATCHES="" GUIDANCE="" DISAGREEMENTS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -14,6 +14,7 @@ while [[ $# -gt 0 ]]; do
     --scorecard) SCORECARD="$2"; shift 2;;
     --dispatches) DISPATCHES="$2"; shift 2;;
     --guidance) GUIDANCE="$2"; shift 2;;
+    --disagreements) DISAGREEMENTS="$2"; shift 2;;
     *) echo "Unknown arg: $1" >&2; exit 2;;
   esac
 done
@@ -51,6 +52,21 @@ ENTRY=$(jq -r --arg iter "$ITERATION" --arg ts "$TIMESTAMP" --arg disp "$DISPATC
   ) | join("")) +
   (if $guide != "" then "\n**Guidance:** \"\($guide)\"" else "" end)
 ' "$SCORECARD")
+
+# Append disagreements if provided and non-empty
+if [[ -n "$DISAGREEMENTS" && -f "$DISAGREEMENTS" ]]; then
+  DISAGREE_SECTION=$(jq -r '
+    if length == 0 then "" else
+      "\n**Disagreements:**" +
+      (map("\n- \(.domain).\(.dimension): spread \(.spread) (" +
+        ([.scores | to_entries[] | "\(.key): \(.value)"] | join(", ")) +
+      ")") | join(""))
+    end
+  ' "$DISAGREEMENTS" 2>/dev/null || true)
+  if [[ -n "$DISAGREE_SECTION" ]]; then
+    ENTRY="${ENTRY}${DISAGREE_SECTION}"
+  fi
+fi
 
 # Update total_dispatches
 CURRENT_BODY=$(beans show "$BEAN_ID" --json 2>/dev/null | jq -r '.body') || { echo "Bean $BEAN_ID not found" >&2; exit 1; }

@@ -47,7 +47,43 @@ assert_eq "total_dispatches cumulative" "3" "$(echo "$OUTPUT" | jq -r '.total_di
 assert_eq "last_verdict is FAIL" "FAIL" "$(echo "$OUTPUT" | jq -r '.last_verdict')"
 assert_eq "last_guidance" "Needs improvement" "$(echo "$OUTPUT" | jq -r '.last_guidance')"
 
-echo "Test 5: Missing --bean-id errors"
+echo "Test 5: Iteration with disagreements file"
+cat > /tmp/test-disagreements.json << 'EOF'
+[{"domain": "general", "dimension": "correctness", "spread": 3, "scores": {"claude": 9, "codex": 6}}]
+EOF
+cat > /tmp/test-scorecard3.json << 'EOF'
+{"domains":{"general":{"dimensions":{"correctness":{"score":6,"threshold":7}}}},"criteria":[]}
+EOF
+"$SCRIPT_DIR/append-eval-log.sh" --bean-id "$BEAN_ID" --iteration 3 --scorecard /tmp/test-scorecard3.json --dispatches 2 --guidance "" --disagreements /tmp/test-disagreements.json
+BODY=$(beans show "$BEAN_ID" --json 2>/dev/null | jq -r '.body')
+echo "$BODY" | grep -q "Disagreements:" && assert_eq "disagreements section present" "yes" "yes" || assert_eq "disagreements section present" "yes" "no"
+echo "$BODY" | grep -q "general\.correctness: spread 3" && assert_eq "disagreement detail correct" "yes" "yes" || assert_eq "disagreement detail correct" "yes" "no"
+echo "$BODY" | grep -q "claude: 9" && assert_eq "provider score claude" "yes" "yes" || assert_eq "provider score claude" "yes" "no"
+echo "$BODY" | grep -q "codex: 6" && assert_eq "provider score codex" "yes" "yes" || assert_eq "provider score codex" "yes" "no"
+
+echo "Test 6: Iteration without disagreements (backward compatible)"
+cat > /tmp/test-scorecard4.json << 'EOF'
+{"domains":{"general":{"dimensions":{"correctness":{"score":8,"threshold":7}}}},"criteria":[]}
+EOF
+"$SCRIPT_DIR/append-eval-log.sh" --bean-id "$BEAN_ID" --iteration 4 --scorecard /tmp/test-scorecard4.json --dispatches 1 --guidance ""
+BODY=$(beans show "$BEAN_ID" --json 2>/dev/null | jq -r '.body')
+# Iteration 4 should NOT have a Disagreements section — count occurrences
+DISAGREE_COUNT=$(echo "$BODY" | grep -c "Disagreements:" || true)
+assert_eq "only one disagreements section (from iter 3)" "1" "$DISAGREE_COUNT"
+
+echo "Test 7: Iteration with empty disagreements array"
+cat > /tmp/test-disagreements-empty.json << 'EOF'
+[]
+EOF
+cat > /tmp/test-scorecard5.json << 'EOF'
+{"domains":{"general":{"dimensions":{"correctness":{"score":9,"threshold":7}}}},"criteria":[]}
+EOF
+"$SCRIPT_DIR/append-eval-log.sh" --bean-id "$BEAN_ID" --iteration 5 --scorecard /tmp/test-scorecard5.json --dispatches 1 --guidance "" --disagreements /tmp/test-disagreements-empty.json
+BODY=$(beans show "$BEAN_ID" --json 2>/dev/null | jq -r '.body')
+DISAGREE_COUNT=$(echo "$BODY" | grep -c "Disagreements:" || true)
+assert_eq "still only one disagreements section (empty array ignored)" "1" "$DISAGREE_COUNT"
+
+echo "Test 8: Missing --bean-id errors"
 EXIT_CODE=0
 "$SCRIPT_DIR/append-eval-log.sh" --init --base-sha "x" 2>/dev/null || EXIT_CODE=$?
 assert_eq "append missing bean-id → exit 2" "2" "$EXIT_CODE"
@@ -58,5 +94,5 @@ assert_eq "parse missing bean-id → exit 2" "2" "$EXIT_CODE"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-rm -f /tmp/test-scorecard.json /tmp/test-scorecard2.json
+rm -f /tmp/test-scorecard.json /tmp/test-scorecard2.json /tmp/test-scorecard3.json /tmp/test-scorecard4.json /tmp/test-scorecard5.json /tmp/test-disagreements.json /tmp/test-disagreements-empty.json
 [ "$FAIL" -eq 0 ] || exit 1

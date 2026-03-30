@@ -230,6 +230,15 @@ The merged scorecard uses conservative (min) scoring: for each dimension, the fi
 
 Disagreements (spread >= 3 between providers on any dimension) are written to `disagreements-{domain}.json`. Include disagreement data in evaluator feedback when re-dispatching implementers.
 
+After merging all domains, combine disagreement files for the eval log:
+
+```bash
+# Merge per-domain disagreement files into a single array
+jq -s 'add // []' disagreements-*.json > disagreements.json
+```
+
+Pass the combined `disagreements.json` to `append-eval-log.sh` in step 1k.
+
 If a domain has only one provider, `merge-scorecards.sh` still runs (single-element array) to ensure consistent scorecard format.
 
 ### 1h. Merge Cross-Domain Scorecards
@@ -290,13 +299,33 @@ Do NOT continue iterating. Do NOT lower thresholds. Do NOT rationalize.
 
 <HARD-GATE>
 After every evaluation cycle, you MUST run:
-  scripts/append-eval-log.sh --bean-id {id} --iteration {N} --scorecard {scorecard_file} --dispatches {count} --guidance {text}
+  scripts/append-eval-log.sh --bean-id {id} --iteration {N} --scorecard {scorecard_file} --dispatches {count} --guidance {text} --disagreements disagreements.json
 The --dispatches {count} MUST reflect actual provider dispatches (each provider dispatch = 1), not just iterations.
 For example, 2 providers x 2 domains = 4 dispatches per iteration.
+The --disagreements parameter is optional. Pass the combined disagreements file from step 1g. If the file contains a non-empty array, disagreement details are appended to the iteration entry.
 Do NOT skip logging. Do NOT write the log entry manually.
 </HARD-GATE>
 
-### 1l. Act on Convergence Result
+### 1l. Attended Disagreement Gate
+
+When `attended: true` in `orchestrate.json` and `disagreements.json` contains a non-empty array, pause for human review before acting on convergence:
+
+1. **Show each disagreement** with provider scores:
+   ```
+   Disagreement: general.correctness — spread 3
+     claude: 9, codex: 6
+   Which score should be used? [9/6/other]:
+   ```
+2. **Ask the human** which score to use for each disagreement.
+3. **Encode the human's choice** as a calibration anchor for future evaluations. Write to `calibration-anchors.json`:
+   ```json
+   [{"domain": "general", "dimension": "correctness", "anchor_score": 9, "reason": "human override", "source_iteration": 3}]
+   ```
+   Calibration anchors inform future evaluator dispatches — when the same domain+dimension is evaluated again, the anchor score is provided as context to reduce provider divergence.
+
+When `attended: false` (current default), disagreements are logged in the eval log (step 1k) but no human review occurs. The loop proceeds directly to the convergence action.
+
+### 1m. Act on Convergence Result
 
 | Result | Action |
 |---|---|
@@ -437,7 +466,7 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - ~~**Single provider:**~~ Multi-provider evaluation added in M4. Per-provider dispatch via Agent (claude) or `hooks/dispatch-provider.sh` (external), with `merge-scorecards.sh` merging provider scorecards before threshold checks.
 - ~~**No runtime:**~~ Runtime lifecycle added in M2. Start/stop runtimes around evaluator dispatch when domain has runtime configured.
 - ~~**No holistic review:**~~ Holistic review added in M3. After per-task loop, dispatch holistic reviewer for cross-domain integration check with remediation loop.
-- **No attended gate:** All evaluation is unattended. The `attended` config key is read but ignored (M5 adds attended mode).
+- **No attended gate:** All evaluation is unattended. The `attended` config key is read but ignored. Disagreements are logged to the eval log (step 1k) but the attended gate (step 1l) is skipped. M5 activates attended mode with human-in-the-loop disagreement review and calibration anchors.
 - **No antipatterns:** No antipattern detection layer (M5 adds this).
 
 ## Red Flags
