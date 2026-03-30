@@ -41,12 +41,16 @@ Read `orchestrate.json` from project root. Extract the `evaluators` block:
     "max_dispatches_per_task": 60,
     "domains": {
       "general": { "template": "evaluator-general", "providers": ["claude"] }
+    },
+    "holistic": {
+      "providers": ["claude"],
+      "max_iterations": 3
     }
   }
 }
 ```
 
-Store `max_dispatches_per_task` for the convergence budget. Store `domains` for evaluator dispatch.
+Store `max_dispatches_per_task` for the convergence budget. Store `domains` for evaluator dispatch. Store `evaluators.holistic.providers` for holistic review dispatch (default: `["claude"]`).
 
 ## Step 1: Per-Task Loop
 
@@ -364,25 +368,83 @@ If start-runtimes.sh fails (exit 1 or 2, app/config issue): include the error in
 Do NOT skip runtime start. Do NOT dispatch holistic review without attempting to start all runtimes.
 </HARD-GATE>
 
-### 2b. Dispatch Holistic Reviewer
+### 2b. Dispatch Holistic Reviewer (Per-Provider)
 
-Dispatch a subagent using `skills/develop/holistic-review.md`. Provide:
+Read `evaluators.holistic.providers` from `orchestrate.json`. If the key is absent, default to `["claude"]`.
+
+For each provider in the holistic providers list, dispatch a holistic reviewer:
+
+**If provider is `claude`:** Dispatch a subagent using `skills/develop/holistic-review.md`.
+
+**If provider is external (not `claude`):** Dispatch via the provider hook:
+
+```bash
+hooks/dispatch-provider.sh <provider> \
+  --role holistic-reviewer \
+  --topic "Holistic review: cross-domain integration assessment" \
+  --instructions "$(cat skills/develop/holistic-review.md)" \
+  --diff-file <diff-file> \
+  --design-doc-file <design-doc-file>
+```
+
+Provide to ALL holistic reviewers (claude and external):
 
 - The full diff since the epic's base SHA (before any task started): `git diff {epic-base-sha}...HEAD`
 - The design spec / plan document
 - All task bean bodies (for spec requirements): `beans list --parent <epic-id> --json`
 - Runtime state for ALL domains (ports, domain names, ready status)
 
-The holistic reviewer produces a single JSON scorecard with:
+Each holistic reviewer produces a single JSON scorecard with:
 - `domain: "holistic"` with dimensions: `integration`, `coherence`, `holistic_spec_fidelity`, `polish`, `runtime_health`
 - `spec_coverage_matrix` — JSON array classifying every spec requirement as Full/Weak/Missing
 - `remediation_beans` — JSON array of remediation tasks for gaps
 
-Save the scorecard:
+The scorecard MUST include a `"provider"` field identifying which provider produced it.
+
+**Each holistic provider dispatch counts as 1 toward the holistic dispatch budget.** Track `holistic_dispatch_count` across iterations. For example, 2 providers = 2 dispatches per holistic iteration. The `--current-dispatches` passed to `check-convergence.sh` in step 2c reflects total holistic provider dispatches (not just iteration count).
+
+Save each provider's scorecard separately:
 
 ```bash
-cat > scorecard-holistic.json   # ← holistic reviewer output
+cat > scorecard-holistic-{provider}.json   # ← holistic reviewer output for this provider
 ```
+
+### 2b-2. Merge Holistic Provider Scorecards
+
+After all holistic provider scorecards are collected, merge them before threshold checks.
+
+<HARD-GATE>
+After receiving ALL holistic provider scorecards, you MUST run:
+  scripts/merge-scorecards.sh < scorecards-array.json > scorecard-holistic.json 2> disagreements-holistic.json
+Use the merged scorecard for threshold checks. Do NOT merge scores yourself.
+</HARD-GATE>
+
+Build a JSON array of all holistic provider scorecards and pipe to `merge-scorecards.sh`:
+
+```bash
+# Collect all holistic provider scorecards into a JSON array
+jq -s '.' scorecard-holistic-*.json | \
+  scripts/merge-scorecards.sh > scorecard-holistic.json 2> disagreements-holistic.json
+```
+
+The merged scorecard uses conservative (min) scoring: for each dimension, the final score is the minimum across providers. Each dimension includes `provider_scores` showing per-provider breakdown.
+
+**Coverage matrix merge:** Union all requirements from all providers' `spec_coverage_matrix` arrays. For each requirement, coverage = min across providers using the ordering Full > Weak > Missing. If ANY provider marks a requirement as Missing, the merged result is Missing. If any marks Weak and none marks Missing, the merged result is Weak.
+
+```json
+{
+  "spec_coverage_matrix": [
+    {"requirement": "R1", "coverage": "Missing", "provider_coverage": {"claude": "Full", "codex": "Missing"}},
+    {"requirement": "R2", "coverage": "Full", "provider_coverage": {"claude": "Full", "codex": "Full"}}
+  ]
+}
+```
+
+**Remediation bean merge:** Union all providers' `remediation_beans` arrays. Deduplicate by requirement — if multiple providers produce remediation beans for the same requirement, keep the one with the most specific description (longest body). Each merged remediation bean includes a `source_providers` field listing which providers flagged it.
+
+Disagreements (spread >= 3 between providers on any dimension) are written to `disagreements-holistic.json`. Include disagreement data in evaluator feedback when re-dispatching holistic review.
+
+If only one provider is configured, `merge-scorecards.sh` still runs (single-element array) to ensure consistent scorecard format.
 
 ### 2c. Check Holistic Thresholds
 
@@ -484,8 +546,10 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - **Never** exceed `max_iterations` for holistic review without escalating to human
 - **Never** dispatch holistic review without starting all domain runtimes first
 - **Never** leave runtimes running after holistic review completes
-- **Never** skip `merge-scorecards.sh` when multiple providers produce scorecards — merging is a HARD-GATE
+- **Never** skip `merge-scorecards.sh` when multiple providers produce scorecards — merging is a HARD-GATE (applies to both per-task and holistic scorecards)
 - **Never** merge provider scores manually — always use the merge script
+- **Never** skip holistic provider scorecard merging — even with one provider, `merge-scorecards.sh` must run for consistent format
+- **Never** merge coverage matrices manually — use min(Full > Weak > Missing) rule: any provider marks Missing means Missing
 
 ## Restart Resilience
 
