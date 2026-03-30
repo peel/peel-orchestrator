@@ -178,14 +178,16 @@ The external provider receives the same context as the claude evaluator: evaluat
 
 **Each provider dispatch counts as 1 toward the dispatch budget**, regardless of provider type. For example, 2 providers x 2 domains = 4 dispatches per iteration.
 
-Provide to all evaluators (claude and external):
-- The full diff since BASE_SHA: `git diff {BASE_SHA}...HEAD`
-- The bean's acceptance criteria
-- The domain template's scoring dimensions
-- If runtime is configured: `skills/runtime-evidence/SKILL.md` content (loaded alongside domain template)
-- If runtime is configured: runtime state (port, domain) so the evaluator can interact with the running app
-- If `runtime_agent` or `stack_agents` are configured for the domain in orchestrate.json: read those agent files and include their content in the evaluator prompt context
-- If `evaluators.domains.<domain>.antipatterns` is configured in orchestrate.json: read the antipatterns file and inject its content into the evaluator's `{ANTIPATTERNS}` placeholder. This is loaded last in the evaluator context (position 8 in the context loading order).
+Provide to all evaluators (claude and external) in the following **context loading order**:
+
+1. **Evaluation protocol** — `skills/evaluate/SKILL.md`
+2. **Domain template** — `skills/evaluate/evaluator-<domain>.md` (as specified in the resolved domain's `template` field, e.g., `evaluator-general.md`, `evaluator-frontend.md`)
+3. **Project calibration** (if exists) — read `evaluators.domains.<domain>.calibration` from `orchestrate.json`. If the key is present, read the file at that path (relative to project root) and include its content immediately after the domain template. If absent, skip (no default file is loaded here; default calibration files are only created when the attended gate writes anchors in step 1i).
+4. **Runtime evidence** (if runtime configured) — `skills/runtime-evidence/SKILL.md` content, plus runtime state (port, domain) so the evaluator can interact with the running app
+5. **Runtime/stack agents** (if configured) — if `runtime_agent` or `stack_agents` are configured for the domain in orchestrate.json, read those agent files and include their content
+6. **Task criteria** — the bean's acceptance criteria and the domain template's scoring dimensions
+7. **Prior scorecards** (if iteration 2+) — the full diff since BASE_SHA (`git diff {BASE_SHA}...HEAD`) and the previous iteration's scorecard with evaluator guidance
+8. **Antipatterns** (if configured) — if `evaluators.domains.<domain>.antipatterns` is configured in orchestrate.json, read the antipatterns file and inject its content into the evaluator's `{ANTIPATTERNS}` placeholder. This is loaded last in the evaluator context.
 
 Each evaluator (regardless of provider) returns a single scorecard JSON containing both per-dimension scores (under `.domains`) and pass/fail criteria (under `.criteria`). The scorecard MUST include a `"provider"` field identifying which provider produced it. Save each provider's scorecard per domain separately:
 
@@ -584,6 +586,7 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - ~~**No runtime:**~~ Runtime lifecycle added in M2. Start/stop runtimes around evaluator dispatch when domain has runtime configured.
 - ~~**No holistic review:**~~ Holistic review added in M3. After per-task loop, dispatch holistic reviewer for cross-domain integration check with remediation loop.
 - ~~**No attended gate:**~~ Attended mode gate added in M5 (step 1i). When `evaluators.attended: true`, the full merged scorecard is shown to the human before threshold checks. Human corrections update scores and encode calibration anchors in project calibration files (`docs/evaluator-calibration-<domain>.md`).
+- ~~**No calibration loading:**~~ Calibration file loading added in M5 (step 1f, context position 3). When `evaluators.domains.<domain>.calibration` is configured in orchestrate.json, the file is loaded and included in evaluator context after the domain template. Calibration anchors written by the attended gate (step 1i) are picked up on future evaluator dispatches.
 - ~~**No antipatterns:**~~ Antipattern loading and checking added in M5. Antipattern files are read from `evaluators.domains.<domain>.antipatterns` in orchestrate.json and injected into both implementer and evaluator prompts. Evaluators treat detected antipatterns as grounds for failing the task.
 
 ## Red Flags
@@ -608,6 +611,7 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - **Never** skip the attended scorecard gate (step 1i) when `evaluators.attended` is true — human review before threshold checks is a HARD-GATE
 - **Never** proceed to threshold checks without human confirmation when attended mode is active
 - **Never** discard human score corrections — corrected scores must update the scorecard AND encode calibration anchors
+- **Never** skip calibration file loading when `evaluators.domains.<domain>.calibration` is configured — the calibration file must be loaded at position 3 in the context loading order, immediately after the domain template
 
 ## Restart Resilience
 
