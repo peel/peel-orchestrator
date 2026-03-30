@@ -241,7 +241,7 @@ After merging all domains, combine disagreement files for the eval log:
 jq -s 'add // []' disagreements-*.json > disagreements.json
 ```
 
-Pass the combined `disagreements.json` to `append-eval-log.sh` in step 1k.
+Pass the combined `disagreements.json` to `append-eval-log.sh` in step 1l.
 
 If a domain has only one provider, `merge-scorecards.sh` still runs (single-element array) to ensure consistent scorecard format.
 
@@ -270,20 +270,88 @@ List only the per-domain merged scorecards (one per resolved domain from step 1g
 
 On failure, the merged scorecard identifies which domain(s) failed. Pass the merged scorecard to `check-thresholds.sh` — it already handles multi-domain scorecards.
 
-Both files (`scorecard.json` and `criteria.json`) are then passed to `check-thresholds.sh` in step 1i.
+Both files (`scorecard.json` and `criteria.json`) are then passed to the attended gate (step 1i) and subsequently to `check-thresholds.sh` (step 1j).
 
-### 1i. Check Thresholds
+### 1i. Attended Scorecard Gate
 
 <HARD-GATE>
-After receiving evaluator scorecards, you MUST run:
+IF evaluators.attended is true in orchestrate.json:
+  After merging cross-domain scorecards (step 1h), before threshold checks, you MUST present the merged scorecard to the human for review.
+
+  1. Show the full merged scorecard with ALL dimension scores across ALL domains.
+  2. Highlight any dimension scoring BELOW its threshold (show score and threshold).
+  3. Highlight any provider disagreements from disagreements.json (show dimension, provider scores, spread).
+  4. Ask: "Do you agree with these scores? Correct any you disagree with, or confirm to proceed."
+
+  If the human corrects a score:
+    a. Record the correction: {domain, dimension, evaluator_score, human_score, reason}
+    b. Update the merged scorecard (scorecard.json) with the human's corrected score for that dimension.
+    c. Encode the correction as a calibration anchor in the project's calibration file (see below).
+    d. Use the corrected scorecard for ALL subsequent threshold and convergence checks.
+
+  If the human confirms: proceed with evaluator scores unchanged.
+
+Do NOT skip the attended gate when evaluators.attended is true.
+Do NOT proceed to threshold checks without human confirmation when attended mode is active.
+</HARD-GATE>
+
+#### Calibration Anchor Encoding
+
+When the human corrects a score during attended review, append a calibration anchor to the project's calibration file for that domain.
+
+**Locate the calibration file:** Read `evaluators.domains.<domain>.calibration` from `orchestrate.json`. If the key is present, use that path. If absent, default to `docs/evaluator-calibration-<domain>.md`. Create the file if it does not exist.
+
+**Append the anchor in this format:**
+
+```markdown
+## [dimension] — Correction (YYYY-MM-DD)
+**Evaluator scored:** X/10 — "[evaluator evidence from scorecard]"
+**Human corrected to:** Y/10 — "[human's stated reason]"
+**Anchor:** For this project, score Y means: [human's description of what that score level looks like]
+```
+
+Ask the human for their reason and description when they correct a score. The anchor becomes part of the evaluator's context on future dispatches (loaded at position 3 in the context loading order — see step 1f).
+
+**Example interaction:**
+
+```
+Attended Scorecard Review — Iteration 2
+
+Domain: general
+  correctness:        8/10 (threshold: 7) ✓
+  domain_spec_fidelity: 5/10 (threshold: 8) ✗ BELOW THRESHOLD
+  code_quality:       7/10 (threshold: 6) ✓
+
+Provider disagreements:
+  general.domain_spec_fidelity — spread 3
+    claude: 8, codex: 5
+
+Do you agree with these scores? Correct any you disagree with, or confirm to proceed.
+```
+
+If human corrects `domain_spec_fidelity` to 7 with reason "spec coverage is adequate, missing only optional features":
+
+```markdown
+## domain_spec_fidelity — Correction (2026-03-30)
+**Evaluator scored:** 5/10 — "[evaluator's evidence text]"
+**Human corrected to:** 7/10 — "spec coverage is adequate, missing only optional features"
+**Anchor:** For this project, score 7 means: all required spec items implemented, only optional/nice-to-have items missing
+```
+
+When `evaluators.attended` is false, skip this step entirely — proceed directly to threshold checks (step 1j).
+
+### 1j. Check Thresholds
+
+<HARD-GATE>
+After the attended gate (step 1i) or directly after scorecard merge (when unattended), you MUST run:
   scripts/check-thresholds.sh --scorecard {scorecard_file} --criteria {criteria_file}
   scripts/check-convergence.sh --current {verdict_file} --history {history_file} --max-dispatches N --current-dispatches M
 Act on the scripts' verdicts. Do NOT compute thresholds or convergence yourself.
 </HARD-GATE>
 
-Run `check-thresholds.sh` with the merged scorecard (from step 1h). It produces a verdict: `PASS` (exit 0) or `FAIL` (exit 1). The output includes a `dimensions` flat map (`{"frontend.correctness": 8, "backend.api_quality": 7, ...}`) with all per-domain dimension scores. On `FAIL`, the output identifies which domain(s) did not meet thresholds. This output can be passed directly to `check-convergence.sh` as the `--current` file and appended to the history array for future convergence checks.
+Run `check-thresholds.sh` with the merged scorecard (from step 1h, potentially corrected in step 1i). It produces a verdict: `PASS` (exit 0) or `FAIL` (exit 1). The output includes a `dimensions` flat map (`{"frontend.correctness": 8, "backend.api_quality": 7, ...}`) with all per-domain dimension scores. On `FAIL`, the output identifies which domain(s) did not meet thresholds. This output can be passed directly to `check-convergence.sh` as the `--current` file and appended to the history array for future convergence checks.
 
-### 1j. Check Convergence
+### 1k. Check Convergence
 
 Run `check-convergence.sh` with the `--current` file (the check-thresholds.sh output, which includes the `dimensions` flat map), the `--history` file (a JSON array of prior check-thresholds.sh outputs), and dispatch budget.
 
@@ -299,7 +367,7 @@ If check-convergence.sh returns DISPATCHES_EXCEEDED (exit 2), you MUST stop and 
 Do NOT continue iterating. Do NOT lower thresholds. Do NOT rationalize.
 </HARD-GATE>
 
-### 1k. Log Evaluation
+### 1l. Log Evaluation
 
 <HARD-GATE>
 After every evaluation cycle, you MUST run:
@@ -307,27 +375,9 @@ After every evaluation cycle, you MUST run:
 The --dispatches {count} MUST reflect actual provider dispatches (each provider dispatch = 1), not just iterations.
 For example, 2 providers x 2 domains = 4 dispatches per iteration.
 The --disagreements parameter is optional. Pass the combined disagreements file from step 1g. If the file contains a non-empty array, disagreement details are appended to the iteration entry.
+If the attended gate (step 1i) produced human corrections, include them in the log entry by passing --corrections {corrections_json} with the array of {domain, dimension, evaluator_score, human_score, reason} objects.
 Do NOT skip logging. Do NOT write the log entry manually.
 </HARD-GATE>
-
-### 1l. Attended Disagreement Gate
-
-When `attended: true` in `orchestrate.json` and `disagreements.json` contains a non-empty array, pause for human review before acting on convergence:
-
-1. **Show each disagreement** with provider scores:
-   ```
-   Disagreement: general.correctness — spread 3
-     claude: 9, codex: 6
-   Which score should be used? [9/6/other]:
-   ```
-2. **Ask the human** which score to use for each disagreement.
-3. **Encode the human's choice** as a calibration anchor for future evaluations. Write to `calibration-anchors.json`:
-   ```json
-   [{"domain": "general", "dimension": "correctness", "anchor_score": 9, "reason": "human override", "source_iteration": 3}]
-   ```
-   Calibration anchors inform future evaluator dispatches — when the same domain+dimension is evaluated again, the anchor score is provided as context to reduce provider divergence.
-
-When `attended: false` (current default), disagreements are logged in the eval log (step 1k) but no human review occurs. The loop proceeds directly to the convergence action.
 
 ### 1m. Act on Convergence Result
 
@@ -528,7 +578,7 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - ~~**Single provider:**~~ Multi-provider evaluation added in M4. Per-provider dispatch via Agent (claude) or `hooks/dispatch-provider.sh` (external), with `merge-scorecards.sh` merging provider scorecards before threshold checks.
 - ~~**No runtime:**~~ Runtime lifecycle added in M2. Start/stop runtimes around evaluator dispatch when domain has runtime configured.
 - ~~**No holistic review:**~~ Holistic review added in M3. After per-task loop, dispatch holistic reviewer for cross-domain integration check with remediation loop.
-- **No attended gate:** All evaluation is unattended. The `attended` config key is read but ignored. Disagreements are logged to the eval log (step 1k) but the attended gate (step 1l) is skipped. M5 activates attended mode with human-in-the-loop disagreement review and calibration anchors.
+- ~~**No attended gate:**~~ Attended mode gate added in M5 (step 1i). When `evaluators.attended: true`, the full merged scorecard is shown to the human before threshold checks. Human corrections update scores and encode calibration anchors in project calibration files (`docs/evaluator-calibration-<domain>.md`).
 - **No antipatterns:** No antipattern detection layer (M5 adds this).
 
 ## Red Flags
@@ -550,6 +600,9 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - **Never** merge provider scores manually — always use the merge script
 - **Never** skip holistic provider scorecard merging — even with one provider, `merge-scorecards.sh` must run for consistent format
 - **Never** merge coverage matrices manually — use min(Full > Weak > Missing) rule: any provider marks Missing means Missing
+- **Never** skip the attended scorecard gate (step 1i) when `evaluators.attended` is true — human review before threshold checks is a HARD-GATE
+- **Never** proceed to threshold checks without human confirmation when attended mode is active
+- **Never** discard human score corrections — corrected scores must update the scorecard AND encode calibration anchors
 
 ## Restart Resilience
 
