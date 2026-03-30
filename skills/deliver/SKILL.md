@@ -114,6 +114,8 @@ For each correction the user provides, append an anchor to the matching calibrat
 
 If the calibration file does not exist yet, create it with a top-level heading `# Evaluator Calibration — <domain>`.
 
+After writing calibration anchors, ensure `orchestrate.json` has `evaluators.domains.<domain>.calibration` set to the file path (e.g., `docs/evaluator-calibration-<domain>.md`). This wires the calibration file into the develop loop so evaluators receive it on future runs.
+
 #### 4c. Add Antipatterns
 
 For each real failure found post-delivery (bugs, regressions, missed requirements), append to `docs/antipatterns-<domain>.md`:
@@ -126,6 +128,8 @@ For each real failure found post-delivery (bugs, regressions, missed requirement
 ```
 
 If the antipattern file does not exist yet, create it with a top-level heading `# Antipatterns — <domain>`.
+
+After writing antipatterns, ensure `orchestrate.json` has `evaluators.domains.<domain>.antipatterns` set to the file path (e.g., `docs/antipatterns-<domain>.md`). This wires the antipattern file into the develop loop so both implementer and evaluator receive it on future runs.
 
 #### 4d. Adjust Thresholds
 

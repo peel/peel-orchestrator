@@ -1,1 +1,9 @@
 .worktrees/
+
+# Evaluation artifacts (temporary JSON files produced during develop loop)
+scorecard*.json
+verdict.json
+history*.json
+convergence.json
+criteria.json
+disagreements*.json

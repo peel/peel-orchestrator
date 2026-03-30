@@ -3,7 +3,7 @@
 # Exit 0 = success, 1 = bean not found, 2 = invalid input.
 set -euo pipefail
 
-BEAN_ID="" INIT=false BASE_SHA="" ITERATION="" SCORECARD="" DISPATCHES="" GUIDANCE="" DISAGREEMENTS=""
+BEAN_ID="" INIT=false BASE_SHA="" ITERATION="" SCORECARD="" DISPATCHES="" GUIDANCE="" DISAGREEMENTS="" CORRECTIONS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -15,6 +15,7 @@ while [[ $# -gt 0 ]]; do
     --dispatches) DISPATCHES="$2"; shift 2;;
     --guidance) GUIDANCE="$2"; shift 2;;
     --disagreements) DISAGREEMENTS="$2"; shift 2;;
+    --corrections) CORRECTIONS="$2"; shift 2;;
     *) echo "Unknown arg: $1" >&2; exit 2;;
   esac
 done
@@ -65,6 +66,21 @@ if [[ -n "$DISAGREEMENTS" && -f "$DISAGREEMENTS" ]]; then
   ' "$DISAGREEMENTS" 2>/dev/null || true)
   if [[ -n "$DISAGREE_SECTION" ]]; then
     ENTRY="${ENTRY}${DISAGREE_SECTION}"
+  fi
+fi
+
+# Append corrections if provided and non-empty
+if [[ -n "$CORRECTIONS" && -f "$CORRECTIONS" ]]; then
+  CORRECT_SECTION=$(jq -r '
+    if length == 0 then "" else
+      "\n**Human Corrections:**" +
+      (map("\n- \(.domain).\(.dimension): evaluator \(.evaluator_score) → human \(.human_score)" +
+        (if .reason then " (\(.reason))" else "" end)
+      ) | join(""))
+    end
+  ' "$CORRECTIONS" 2>/dev/null || true)
+  if [[ -n "$CORRECT_SECTION" ]]; then
+    ENTRY="${ENTRY}${CORRECT_SECTION}"
   fi
 fi
 
