@@ -86,15 +86,16 @@ EXIT_CODE=0
 OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" --domains "frontend,backend" --config "$TMPDIR/orchestrate.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "multi domain → exit 0" 0 "$EXIT_CODE"
 assert_json "array has 2 entries" ". | length" "2" "$OUTPUT"
-assert_json "first domain is frontend" ".[0].domain" "frontend" "$OUTPUT"
-assert_json "first template" ".[0].template" "evaluator-frontend" "$OUTPUT"
+# unique sorts alphabetically: backend before frontend
+assert_json "first domain is backend (sorted)" ".[0].domain" "backend" "$OUTPUT"
+assert_json "first template" ".[0].template" "evaluator-backend" "$OUTPUT"
 assert_json "first resolved_via" ".[0].resolved_via" "config" "$OUTPUT"
-assert_json "second domain is backend" ".[1].domain" "backend" "$OUTPUT"
-assert_json "second template" ".[1].template" "evaluator-backend" "$OUTPUT"
+assert_json "second domain is frontend (sorted)" ".[1].domain" "frontend" "$OUTPUT"
+assert_json "second template" ".[1].template" "evaluator-frontend" "$OUTPUT"
 assert_json "second resolved_via" ".[1].resolved_via" "config" "$OUTPUT"
-assert_json "backend has runtime" ".[1].runtime[0]" "go run ./cmd/server" "$OUTPUT"
-assert_json "backend ready_check type" ".[1].ready_check.type" "http" "$OUTPUT"
-assert_json "backend has 2 providers" ".[1].providers | length" "2" "$OUTPUT"
+assert_json "backend has runtime" ".[0].runtime[0]" "go run ./cmd/server" "$OUTPUT"
+assert_json "backend ready_check type" ".[0].ready_check.type" "http" "$OUTPUT"
+assert_json "backend has 2 providers" ".[0].providers | length" "2" "$OUTPUT"
 
 echo ""
 echo "=== Test 3: Unknown domain falls back to general ==="
@@ -171,6 +172,55 @@ EXIT_CODE=0
 OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" --domains "unknown" --config "$TMPDIR/orchestrate.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "fallback domain → exit 0" 0 "$EXIT_CODE"
 assert_json "fallback gets general providers" ".[0].providers[0]" "claude" "$OUTPUT"
+
+echo ""
+echo "=== Test 13: Whitespace around domain names is trimmed ==="
+EXIT_CODE=0
+OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" --domains " frontend , backend " --config "$TMPDIR/orchestrate.json" 2>/dev/null) || EXIT_CODE=$?
+assert_exit "whitespace trimmed → exit 0" 0 "$EXIT_CODE"
+assert_json "array has 2 entries" ". | length" "2" "$OUTPUT"
+assert_json "first domain is backend (sorted)" ".[0].domain" "backend" "$OUTPUT"
+assert_json "first resolved_via config" ".[0].resolved_via" "config" "$OUTPUT"
+assert_json "second domain is frontend (sorted)" ".[1].domain" "frontend" "$OUTPUT"
+assert_json "second resolved_via config" ".[1].resolved_via" "config" "$OUTPUT"
+
+echo ""
+echo "=== Test 14: Duplicate domains are deduplicated ==="
+EXIT_CODE=0
+OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" --domains "frontend,frontend" --config "$TMPDIR/orchestrate.json" 2>/dev/null) || EXIT_CODE=$?
+assert_exit "dedup → exit 0" 0 "$EXIT_CODE"
+assert_json "array has 1 entry (deduped)" ". | length" "1" "$OUTPUT"
+assert_json "domain is frontend" ".[0].domain" "frontend" "$OUTPUT"
+assert_json "resolved_via config" ".[0].resolved_via" "config" "$OUTPUT"
+
+echo ""
+echo "=== Test 15: --help flag exits 0 and prints usage ==="
+EXIT_CODE=0
+HELP_OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" --help 2>&1) || EXIT_CODE=$?
+assert_exit "--help → exit 0" 0 "$EXIT_CODE"
+if echo "$HELP_OUTPUT" | grep -q "Usage:"; then
+  PASS=$((PASS+1)); echo "  PASS: --help prints usage text"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL: --help does not print usage text"
+fi
+
+echo ""
+echo "=== Test 16: -h flag exits 0 and prints usage ==="
+EXIT_CODE=0
+HELP_OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" -h 2>&1) || EXIT_CODE=$?
+assert_exit "-h → exit 0" 0 "$EXIT_CODE"
+if echo "$HELP_OUTPUT" | grep -q "Usage:"; then
+  PASS=$((PASS+1)); echo "  PASS: -h prints usage text"
+else
+  FAIL=$((FAIL+1)); echo "  FAIL: -h does not print usage text"
+fi
+
+echo ""
+echo "=== Test 17: Whitespace-only domain after trim is excluded ==="
+EXIT_CODE=0
+OUTPUT=$("$SCRIPT_DIR/resolve-domains.sh" --domains "frontend, , backend" --config "$TMPDIR/orchestrate.json" 2>/dev/null) || EXIT_CODE=$?
+assert_exit "whitespace-only entries filtered → exit 0" 0 "$EXIT_CODE"
+assert_json "array has 2 entries" ". | length" "2" "$OUTPUT"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

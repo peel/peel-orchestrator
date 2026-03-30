@@ -3,11 +3,30 @@
 # Exit 0 = all resolved (including fallbacks), 1 = app error, 2 = invalid input.
 set -euo pipefail
 
+usage() {
+  cat <<'USAGE'
+Usage: resolve-domains.sh --domains <comma-separated> --config <path>
+
+Resolve each domain name to its full evaluator config from orchestrate.json.
+
+Options:
+  --domains  Comma-separated list of domain names (e.g. "frontend,backend")
+  --config   Path to orchestrate.json config file
+  --help,-h  Show this help message
+
+Exit codes:
+  0  All domains resolved (from config or fallback)
+  1  Application error
+  2  Invalid input (missing args, bad config, etc.)
+USAGE
+}
+
 DOMAINS=""
 CONFIG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --help|-h) usage; exit 0;;
     --domains) DOMAINS="$2"; shift 2;;
     --config) CONFIG="$2"; shift 2;;
     *) echo '{"error":"unknown argument: '"$1"'"}' >&2; exit 2;;
@@ -28,8 +47,8 @@ if ! jq empty "$CONFIG" 2>/dev/null; then
   exit 2
 fi
 
-# Split comma-separated domains into a JSON array of strings
-DOMAIN_LIST=$(echo "$DOMAINS" | jq -R '[split(",")[] | select(length > 0)]')
+# Split comma-separated domains into a JSON array of strings (trim whitespace, deduplicate)
+DOMAIN_LIST=$(echo "$DOMAINS" | jq -R '[split(",")[] | gsub("^\\s+|\\s+$"; "") | select(length > 0)] | unique')
 
 # Resolve each domain against evaluators.domains in config
 OUTPUT=$(jq -n \
