@@ -843,11 +843,15 @@ A growing file of real failures that the system has encountered. Loaded by both 
 
 ### Attended/Unattended Progression
 
-The flow is always the same. What changes is whether the human confirms evaluator scorecards.
+The evaluator system progresses through three stages. The flow is always the same — what changes is whether the human confirms evaluator scorecards and how much oversight is applied.
 
-**`evaluators.attended: true`** — Evaluator scores are shown to human before the orchestrator acts on them. Human can confirm or correct. Corrections become calibration anchors. Use this for the first several runs while calibrating the evaluator.
+**Stage 1 — Attended (`evaluators.attended: true`).** Start here. Evaluator scores are shown to the human before the orchestrator acts on them. The human confirms or corrects each scorecard. Corrections are encoded as calibration anchors, teaching the evaluator what good and bad look like for this project. Run the first several cycles in attended mode to build a project-specific calibration baseline.
 
-**`evaluators.attended: false`** — Evaluator scores are trusted. The orchestrator acts on them without asking. Human reviews at the evolve step post-delivery.
+**Stage 2 — Unattended (`evaluators.attended: false`).** After several attended runs, when evaluator judgment consistently aligns with human judgment (fewer corrections needed, scores match expectations), flip the toggle. The orchestrator now acts on evaluator scores without asking. The human still reviews output at the deliver evolve step post-delivery.
+
+**Stage 3 — Steady state.** The system runs unattended with accumulated calibration and antipatterns. The evolve step (Step 4 in `deliver/SKILL.md`) serves as the periodic spot-check: the human reviews scorecards, iteration counts, and final output, adding calibration updates or new antipatterns only when genuinely new failure modes appear. No ceremony — the system is self-sustaining with accumulated project knowledge.
+
+**Config:** Set `evaluators.attended` in `orchestrate.json`. No restart needed — the develop skill reads it at the start of each task evaluation.
 
 ### Evolve Step
 
