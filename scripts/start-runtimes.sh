@@ -20,6 +20,8 @@ done
 # Check dependencies
 command -v jq >/dev/null 2>&1 || { echo '{"error":"jq not found"}' >&2; exit 3; }
 command -v python3 >/dev/null 2>&1 || { echo '{"error":"python3 not found"}' >&2; exit 3; }
+command -v curl >/dev/null 2>&1 || { echo '{"error":"curl not found"}' >&2; exit 3; }
+command -v bc >/dev/null 2>&1 || { echo '{"error":"bc not found"}' >&2; exit 3; }
 
 # Validate JSON
 if ! jq empty "$DOMAINS_FILE" 2>/dev/null; then
@@ -38,6 +40,12 @@ RUNTIME_ORDER=$(jq -r '
 ' "$DOMAINS_FILE")
 
 RESULTS="[]"
+
+cleanup_on_failure() {
+  for pid in $(echo "$RESULTS" | jq -r '.[].pid' 2>/dev/null); do
+    kill "$pid" 2>/dev/null || true
+  done
+}
 
 poll_tcp() {
   local port="$1" timeout_ms="$2" retry_ms="${3:-1000}"
@@ -135,6 +143,7 @@ while IFS= read -r DOMAIN; do
   sleep 0.3
   if ! kill -0 "$RUNTIME_PID" 2>/dev/null; then
     rm -f "$TMPLOG"
+    cleanup_on_failure
     echo '{"error":"runtime process for domain '"$DOMAIN"' exited immediately"}' >&2
     exit 1
   fi
@@ -185,11 +194,13 @@ print(m.group(1) if m else '8080')
   if [[ "$READY" != "true" ]]; then
     # Check if process died (app failure) vs timeout (could be either)
     if ! kill -0 "$RUNTIME_PID" 2>/dev/null; then
+      cleanup_on_failure
       echo '{"error":"runtime for domain '"$DOMAIN"' crashed during startup"}' >&2
       exit 1
     else
       # Process still running but never became ready — treat as app failure
       kill "$RUNTIME_PID" 2>/dev/null || true
+      cleanup_on_failure
       echo '{"error":"runtime for domain '"$DOMAIN"' timed out waiting for ready_check"}' >&2
       exit 1
     fi

@@ -35,8 +35,8 @@ assert_json_num() {
   fi
 }
 
-TMPDIR=$(mktemp -d)
-trap "rm -rf $TMPDIR" EXIT
+TEST_TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
 # Find a free port for testing
 find_free_port() {
@@ -52,9 +52,9 @@ print(port)
 
 echo "=== Test 0: Missing dependencies (jq hidden) → exit 3 ==="
 # Create a minimal valid domains file; the script checks deps after the file-exists check
-echo '{"domains":{}}' > "$TMPDIR/deps-test.json"
+echo '{"domains":{}}' > "$TEST_TMPDIR/deps-test.json"
 EXIT_CODE=0
-PATH=/usr/bin:/bin "$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/deps-test.json" 2>/dev/null || EXIT_CODE=$?
+PATH=/usr/bin:/bin "$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/deps-test.json" 2>/dev/null || EXIT_CODE=$?
 assert_exit "no jq in PATH → exit 3" 3 "$EXIT_CODE"
 
 echo ""
@@ -71,7 +71,7 @@ assert_exit "missing file → exit 2" 2 "$EXIT_CODE"
 
 echo ""
 echo "=== Test 3: Domain with no runtime configured → exit 0, empty array ==="
-cat > "$TMPDIR/no-runtime.json" << 'EOF'
+cat > "$TEST_TMPDIR/no-runtime.json" << 'EOF'
 {
   "domains": {
     "frontend": {
@@ -81,7 +81,7 @@ cat > "$TMPDIR/no-runtime.json" << 'EOF'
 }
 EOF
 EXIT_CODE=0
-OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/no-runtime.json" 2>/dev/null) || EXIT_CODE=$?
+OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/no-runtime.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "no runtime → exit 0" 0 "$EXIT_CODE"
 assert_json "no runtime → empty array" ". | length" "0" "$OUTPUT"
 
@@ -89,7 +89,7 @@ echo ""
 echo "=== Test 4: TCP ready check — start HTTP server, verify detection ==="
 PORT=$(find_free_port)
 # Write domains config with tcp ready_check
-cat > "$TMPDIR/tcp-domain.json" << EOF
+cat > "$TEST_TMPDIR/tcp-domain.json" << EOF
 {
   "domains": {
     "backend": {
@@ -106,7 +106,7 @@ cat > "$TMPDIR/tcp-domain.json" << EOF
 }
 EOF
 EXIT_CODE=0
-OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/tcp-domain.json" 2>/dev/null) || EXIT_CODE=$?
+OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/tcp-domain.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "tcp ready check → exit 0" 0 "$EXIT_CODE"
 assert_json "output is array" ". | type" "array" "$OUTPUT"
 assert_json "domain name in output" ".[0].domain" "backend" "$OUTPUT"
@@ -120,7 +120,7 @@ kill "$PID" 2>/dev/null || true
 echo ""
 echo "=== Test 5: HTTP ready check — start HTTP server, verify detection ==="
 PORT=$(find_free_port)
-cat > "$TMPDIR/http-domain.json" << EOF
+cat > "$TEST_TMPDIR/http-domain.json" << EOF
 {
   "domains": {
     "web": {
@@ -137,7 +137,7 @@ cat > "$TMPDIR/http-domain.json" << EOF
 }
 EOF
 EXIT_CODE=0
-OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/http-domain.json" 2>/dev/null) || EXIT_CODE=$?
+OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/http-domain.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "http ready check → exit 0" 0 "$EXIT_CODE"
 assert_json "output is array" ". | type" "array" "$OUTPUT"
 assert_json "domain name in output" ".[0].domain" "web" "$OUTPUT"
@@ -148,7 +148,7 @@ kill "$PID" 2>/dev/null || true
 echo ""
 echo "=== Test 6: Command ready check ==="
 PORT=$(find_free_port)
-cat > "$TMPDIR/cmd-domain.json" << EOF
+cat > "$TEST_TMPDIR/cmd-domain.json" << EOF
 {
   "domains": {
     "service": {
@@ -165,7 +165,7 @@ cat > "$TMPDIR/cmd-domain.json" << EOF
 }
 EOF
 EXIT_CODE=0
-OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/cmd-domain.json" 2>/dev/null) || EXIT_CODE=$?
+OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/cmd-domain.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "command ready check → exit 0" 0 "$EXIT_CODE"
 assert_json "domain name in output" ".[0].domain" "service" "$OUTPUT"
 PID=$(echo "$OUTPUT" | jq -r '.[0].pid')
@@ -173,7 +173,7 @@ kill "$PID" 2>/dev/null || true
 
 echo ""
 echo "=== Test 7: App fails to start → exit 1 ==="
-cat > "$TMPDIR/fail-domain.json" << 'EOF'
+cat > "$TEST_TMPDIR/fail-domain.json" << 'EOF'
 {
   "domains": {
     "broken": {
@@ -190,14 +190,14 @@ cat > "$TMPDIR/fail-domain.json" << 'EOF'
 }
 EOF
 EXIT_CODE=0
-"$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/fail-domain.json" 2>/dev/null || EXIT_CODE=$?
+"$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/fail-domain.json" 2>/dev/null || EXIT_CODE=$?
 assert_exit "app fails → exit 1" 1 "$EXIT_CODE"
 
 echo ""
 echo "=== Test 8: runtime_order respected — multi-domain ==="
 PORT1=$(find_free_port)
 PORT2=$(find_free_port)
-cat > "$TMPDIR/ordered-domain.json" << EOF
+cat > "$TEST_TMPDIR/ordered-domain.json" << EOF
 {
   "domains": {
     "frontend": {
@@ -225,7 +225,7 @@ cat > "$TMPDIR/ordered-domain.json" << EOF
 }
 EOF
 EXIT_CODE=0
-OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/ordered-domain.json" 2>/dev/null) || EXIT_CODE=$?
+OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/ordered-domain.json" 2>/dev/null) || EXIT_CODE=$?
 assert_exit "ordered multi-domain → exit 0" 0 "$EXIT_CODE"
 assert_json "output is array" ". | type" "array" "$OUTPUT"
 assert_json "array has 2 entries" ". | length" "2" "$OUTPUT"
@@ -240,7 +240,7 @@ done
 echo ""
 echo "=== Test 9: --slot-index selects correct runtime command ==="
 PORT=$(find_free_port)
-cat > "$TMPDIR/slot-domain.json" << EOF
+cat > "$TEST_TMPDIR/slot-domain.json" << EOF
 {
   "domains": {
     "app": {
@@ -257,7 +257,7 @@ cat > "$TMPDIR/slot-domain.json" << EOF
 }
 EOF
 EXIT_CODE=0
-OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/slot-domain.json" --slot-index 1 2>/dev/null) || EXIT_CODE=$?
+OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/slot-domain.json" --slot-index 1 2>/dev/null) || EXIT_CODE=$?
 assert_exit "slot-index 1 → exit 0" 0 "$EXIT_CODE"
 assert_json "command uses slot 1 port" ".[0].command" "python3 -m http.server $PORT" "$OUTPUT"
 PID=$(echo "$OUTPUT" | jq -r '.[0].pid')
@@ -269,7 +269,7 @@ echo "=== Test 10: Default fallback ready check (tcp port 8080) — no ready_che
 # Start the runtime command on port 8080 so the default check succeeds.
 # Skip if 8080 is already occupied to avoid false failures in CI.
 if python3 -c "import socket; s=socket.socket(); r=s.connect_ex(('localhost',8080)); s.close(); exit(0 if r!=0 else 1)" 2>/dev/null; then
-  cat > "$TMPDIR/no-readycheck.json" << 'EOF'
+  cat > "$TEST_TMPDIR/no-readycheck.json" << 'EOF'
 {
   "domains": {
     "app": {
@@ -280,7 +280,7 @@ if python3 -c "import socket; s=socket.socket(); r=s.connect_ex(('localhost',808
 }
 EOF
   EXIT_CODE=0
-  OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/no-readycheck.json" 2>/dev/null) || EXIT_CODE=$?
+  OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TEST_TMPDIR/no-readycheck.json" 2>/dev/null) || EXIT_CODE=$?
   assert_exit "no ready_check → default tcp:8080 → exit 0" 0 "$EXIT_CODE"
   assert_json "no ready_check → output is array" ". | type" "array" "$OUTPUT"
   assert_json "no ready_check → domain in output" ".[0].domain" "app" "$OUTPUT"
