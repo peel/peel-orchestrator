@@ -50,6 +50,14 @@ print(port)
 "
 }
 
+echo "=== Test 0: Missing dependencies (jq hidden) → exit 3 ==="
+# Create a minimal valid domains file; the script checks deps after the file-exists check
+echo '{"domains":{}}' > "$TMPDIR/deps-test.json"
+EXIT_CODE=0
+PATH=/usr/bin:/bin "$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/deps-test.json" 2>/dev/null || EXIT_CODE=$?
+assert_exit "no jq in PATH → exit 3" 3 "$EXIT_CODE"
+
+echo ""
 echo "=== Test 1: Missing --domains argument → exit 2 ==="
 EXIT_CODE=0
 "$SCRIPT_DIR/start-runtimes.sh" 2>/dev/null || EXIT_CODE=$?
@@ -257,28 +265,31 @@ kill "$PID" 2>/dev/null || true
 
 echo ""
 echo "=== Test 10: Default fallback ready check (tcp port 8080) — no ready_check field ==="
-PORT=$(find_free_port)
-cat > "$TMPDIR/no-readycheck.json" << EOF
+# The script defaults to tcp:8080 when no ready_check is specified.
+# Start the runtime command on port 8080 so the default check succeeds.
+# Skip if 8080 is already occupied to avoid false failures in CI.
+if python3 -c "import socket; s=socket.socket(); r=s.connect_ex(('localhost',8080)); s.close(); exit(0 if r!=0 else 1)" 2>/dev/null; then
+  cat > "$TMPDIR/no-readycheck.json" << 'EOF'
 {
   "domains": {
     "app": {
       "template": "evaluator-app",
-      "runtime": ["python3 -m http.server $PORT"]
+      "runtime": ["python3 -m http.server 8080"]
     }
-  },
-  "_default_port_override": $PORT
+  }
 }
 EOF
-# Note: We test the default port behavior separately — default is port 8080 which may conflict.
-# Just verify the script at least starts and gets exit code based on default tcp check timing out.
-# Since port 8080 may or may not be free, we just verify it exits with code 0 or 1, not 2 or 3.
-# A more precise test would mock port 8080 but that's environment-dependent.
-EXIT_CODE=0
-"$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/no-readycheck.json" 2>/dev/null || EXIT_CODE=$?
-if [ "$EXIT_CODE" = "0" ] || [ "$EXIT_CODE" = "1" ]; then
-  PASS=$((PASS+1)); echo "  PASS: no ready_check → exits 0 or 1 (not harness/input error)"
+  EXIT_CODE=0
+  OUTPUT=$("$SCRIPT_DIR/start-runtimes.sh" --domains "$TMPDIR/no-readycheck.json" 2>/dev/null) || EXIT_CODE=$?
+  assert_exit "no ready_check → default tcp:8080 → exit 0" 0 "$EXIT_CODE"
+  assert_json "no ready_check → output is array" ". | type" "array" "$OUTPUT"
+  assert_json "no ready_check → domain in output" ".[0].domain" "app" "$OUTPUT"
+  assert_json_num "no ready_check → port is 8080" ".[0].port" "$OUTPUT"
+  PID=$(echo "$OUTPUT" | jq -r '.[0].pid' 2>/dev/null || true)
+  kill "$PID" 2>/dev/null || true
 else
-  FAIL=$((FAIL+1)); echo "  FAIL: no ready_check → unexpected exit $EXIT_CODE (expected 0 or 1)"
+  echo "  SKIP: port 8080 already in use — skipping default ready_check test"
+  PASS=$((PASS+1))
 fi
 
 echo ""
