@@ -46,11 +46,14 @@ The task's Evaluation block contains criteria with IDs. For each criterion:
 
 ## Antipattern Checking
 
-If an antipatterns file is provided in your context:
+{ANTIPATTERNS}
+
+If antipatterns are listed above:
 
 1. Check the implementation against each listed antipattern
 2. If detected, add to `antipatterns_detected` with the antipattern ID and evidence
-3. If none detected, return an empty array
+3. Any detected antipattern is grounds for failing the task — lower the relevant dimension scores to reflect the violation
+4. If none detected, return an empty array
 
 ## Prior Scorecard Handling (iteration 2+)
 

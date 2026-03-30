@@ -18,7 +18,7 @@ You will be evaluated on these criteria after you report. Understand them before
 
 ## Known Antipatterns
 
-Avoid these. Violating them will lower your score.
+These are real failures from prior runs. Check your implementation against each one before reporting DONE.
 
 {ANTIPATTERNS}
 
