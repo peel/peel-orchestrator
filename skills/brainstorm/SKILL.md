@@ -27,7 +27,7 @@ You MUST create a task for each of these items and complete them in order:
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to `docs/specs/YYYY-MM-DD-<topic>-design.md` and commit
-7. **Extract initial calibration anchors** — If the spec describes visual/behavioral output, extract quality tier descriptions as initial calibration anchors for the evaluator. Save alongside the spec.
+7. **Extract initial calibration anchors** — If the spec describes visual/behavioral output, extract quality tier descriptions as initial calibration anchors for the evaluator. Save to `docs/evaluator-calibration-<domain>.md` and register in `orchestrate.json`.
 8. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
 9. **User reviews written spec** — ask user to review the spec file before proceeding
 10. **Transition to implementation** — invoke `fiddle:write-plan` skill to create implementation plan
@@ -117,13 +117,30 @@ digraph brainstorming {
 
 **Calibration Anchor Extraction:**
 
-If the design spec describes what the output should look like (visual designs, API contracts, behavioral descriptions), extract calibration anchors:
+If the design spec describes what the output should look like (visual designs, API contracts, behavioral descriptions), extract calibration anchors for each relevant evaluator dimension (e.g., `correctness`, `domain_spec_fidelity`, `code_quality` — see the domain template for exact dimension names).
 
-- What would a **poor** (3-4) implementation look like?
-- What would an **acceptable** (6-7) implementation look like?
-- What would an **excellent** (9-10) implementation look like?
+For each dimension, describe what poor, acceptable, and excellent look like **for this specific project**:
 
-Save to `docs/evaluator-calibration-<domain>.md` alongside the spec. These anchors are loaded by evaluators during implementation to calibrate their scoring.
+```markdown
+## [dimension] — Initial Anchor (YYYY-MM-DD)
+**Poor (3-4):** [What a poor implementation of this dimension looks like for this project]
+**Acceptable (6-7):** [What an acceptable implementation looks like]
+**Excellent (9-10):** [What an excellent implementation looks like]
+```
+
+Save to `docs/evaluator-calibration-<domain>.md` (where `<domain>` matches the evaluator domain, e.g., `general`, `frontend`). These anchors are loaded by evaluators during implementation to calibrate their scoring.
+
+After creating the calibration file, add the calibration path to `orchestrate.json` so the evaluator discovers it:
+
+```json
+"evaluators": {
+  "domains": {
+    "<domain>": {
+      "calibration": "docs/evaluator-calibration-<domain>.md"
+    }
+  }
+}
+```
 
 If the spec is purely structural (scripts, configuration, tooling) with no visible output, skip this step.
 
