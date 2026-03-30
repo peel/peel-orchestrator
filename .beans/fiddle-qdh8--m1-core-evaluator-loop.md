@@ -1,10 +1,11 @@
 ---
 # fiddle-qdh8
 title: 'M1: Core Evaluator Loop'
-status: todo
+status: scrapped
 type: epic
+priority: normal
 created_at: 2026-03-29T19:16:19Z
-updated_at: 2026-03-29T19:16:19Z
+updated_at: 2026-03-30T10:10:23Z
 ---
 
 Single evaluator, single domain, no runtime. Prove the implement → evaluate → converge loop works.

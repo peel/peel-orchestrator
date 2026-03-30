@@ -1,6 +1,6 @@
 # Fiddle
 
-Claude Code plugin for orchestrating a four-phase development lifecycle with multi-model support.
+Claude Code plugin for orchestrating a four-phase development lifecycle with a calibrated evaluator loop and multi-model support.
 
 ## Orchestrate
 
@@ -10,36 +10,71 @@ Claude Code plugin for orchestrating a four-phase development lifecycle with mul
 
 **DEFINE** [`/fiddle:define`](skills/define/SKILL.md) — Brainstorm approaches, run a multi-model adversarial panel (Claude + Codex + Gemini), challenge the chosen design, then produce an implementation plan with sized beans.
 
-**DEVELOP** [`/fiddle:develop`](skills/develop/SKILL.md) — Execute beans in parallel via [ralph subs](skills/develop-subs/SKILL.md) or [ralph team](skills/develop-team/SKILL.md) (automated implement → review cycles), or hands-on. Holistic review via external providers (Claude + Codex) when done.
+**DEVELOP** [`/fiddle:develop`](skills/develop/SKILL.md) — Execute beans via the evaluator loop: dispatch implementer → dispatch per-domain, per-provider evaluators → check thresholds → converge or iterate. Multi-domain evaluation with holistic cross-domain review when all tasks complete.
 
-**DELIVER** [`/fiddle:deliver`](skills/deliver/SKILL.md) — Drift analysis via external providers (Claude + Codex), update technical docs, close the epic.
+**DELIVER** [`/fiddle:deliver`](skills/deliver/SKILL.md) — Drift analysis via external providers (Claude + Codex), evaluator evolve step (calibration updates, antipattern capture, threshold tuning), update technical docs, close the epic.
 
 > [!NOTE]
-> Any CLI that accepts a prompt on stdin works as a provider (Codex, Gemini, Copilot, etc). Configure per phase in [`orchestrate.conf`](orchestrate.conf).
+> Any CLI that accepts a prompt on stdin works as a provider (Codex, Gemini, Copilot, etc). Configure per phase in [`orchestrate.json`](orchestrate.json).
+
+## Evaluator Loop
+
+The develop phase uses a calibrated evaluator loop: dispatch implementer → dispatch evaluators → check thresholds → converge or iterate. Script-enforced convergence (two consecutive passes required) with a dispatch budget that prevents infinite iteration.
+
+**Per-domain evaluation.** Tasks spanning multiple domains (frontend + backend) get independent per-domain scoring. `resolve-domains.sh` maps task domains to evaluator templates. Domain-specific templates (frontend, backend) replace the general template for typed projects.
+
+**Runtime verification.** Evaluators launch and interact with the running app via project-configured MCP tools (marionette, curl, go-dev-mcp) to gather evidence beyond static code review.
+
+**Multi-provider scoring.** Multiple LLM providers evaluate each task for diversity of judgment. Conservative scoring (min across providers per dimension). Disagreements (spread >= 3) surfaced in eval logs.
+
+**Holistic review.** After all tasks complete, a cross-domain integration review produces a spec coverage matrix and remediation loop for any gaps.
+
+**Calibration + evolve.** Attended mode shows scorecards to humans before acting — corrections become calibration anchors in project-specific files. Antipattern files loaded by implementer and evaluator. The deliver evolve step encodes improvements for future runs.
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
+| [`fiddle:brainstorm`](skills/brainstorm/SKILL.md) | Collaborative design dialogue with calibration anchor extraction. |
+| [`fiddle:write-plan`](skills/write-plan/SKILL.md) | Generate implementation plan from a design spec. |
+| [`fiddle:evaluate`](skills/evaluate/SKILL.md) | Evaluator protocol — score an implementation against domain template and criteria. |
 | [`fiddle:challenge`](skills/challenge/SKILL.md) | Walk the decision tree on any plan or design until shared understanding. |
 | [`fiddle:panel`](skills/panel/SKILL.md) | Multi-model adversarial debate — Claude, Codex, Gemini argue positions and cross-review. |
+| [`fiddle:tdd`](skills/tdd/SKILL.md) | Test-driven development workflow. |
+| [`fiddle:verify`](skills/verify/SKILL.md) | Run checks and verify implementation. |
 | [`fiddle:discover-docs`](skills/discover-docs/SKILL.md) | Socratic dialogue to bootstrap or review project docs. |
 | [`fiddle:deliver-docs`](skills/deliver-docs/SKILL.md) | Post-ship doc updates — SYSTEM.md, ADRs, BACKLOG. |
 | [`fiddle:define-beans`](skills/define-beans/SKILL.md) | Task sizing rules for decomposing plans into beans. |
 | [`fiddle:adr`](skills/adr/SKILL.md) | Create an architecture decision record. |
 | [`fiddle:feedback`](skills/feedback/SKILL.md) | Append a user feedback signal. |
 | [`fiddle:backlog`](skills/backlog/SKILL.md) | Append an idea or tech debt item. |
-| [`fiddle:patch-superpowers`](skills/patch-superpowers/SKILL.md) | Re-apply beans integration patches after superpowers updates. |
-
-## Language Support
-
-Review checklists in [`skills/ralph/checklists/`](skills/ralph/checklists/) provide language-specific quality rules for code review. The review coordinator auto-detects the language from the diff and injects the matching checklist.
-
-Shipped: `go`, `dart`, `typescript`. To add a language, create `skills/ralph/checklists/<lang>.md` with checklist items (markdown list, same format as existing files).
+| [`fiddle:debug`](skills/debug/SKILL.md) | Structured debugging workflow. |
 
 ## Configuration
 
-Orchestrate reads [`orchestrate.conf`](orchestrate.conf) (HCL) from the project root. All blocks optional — defaults apply when omitted. See [`fiddle:orchestrate`](skills/orchestrate/SKILL.md) for the full reference.
+Orchestrate reads [`orchestrate.json`](orchestrate.json) from the project root. All keys optional — defaults apply when omitted. See [`fiddle:orchestrate`](skills/orchestrate/SKILL.md) for the full reference.
+
+```jsonc
+{
+  "providers": {
+    "codex": { "command": "codex exec", "flags": "--json -s read-only" },
+    "gemini": { "command": "gemini", "flags": "-o json --approval-mode auto_edit" },
+    "phases": { "discover": ["codex"], "define": ["codex", "gemini"], ... }
+  },
+  "evaluators": {
+    "attended": false,
+    "max_dispatches_per_task": 10,
+    "domains": {
+      "general": {
+        "template": "evaluator-general",
+        "providers": ["claude"],
+        "calibration": "docs/evaluator-calibration-general.md",
+        "antipatterns": "docs/antipatterns-general.md"
+      }
+    }
+  }
+}
+```
 
 ## Install
 

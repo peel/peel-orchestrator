@@ -1,10 +1,11 @@
 ---
 # fiddle-yzzk
 title: 'M1: Core Evaluator Loop'
-status: todo
+status: completed
 type: epic
+priority: normal
 created_at: 2026-03-29T19:17:12Z
-updated_at: 2026-03-29T19:17:12Z
+updated_at: 2026-03-29T21:23:58Z
 ---
 
 Single evaluator, single domain, no runtime. Prove the implement-evaluate-converge loop works.
@@ -21,3 +22,5 @@ Design: docs/superpowers/specs/2026-03-29-calibrated-evaluator-system-design.md
 - [ ] Config: orchestrate.json + orchestrate/SKILL.md updates
 - [ ] Fork: brainstorm + write-plan skills
 - [ ] Integration test
+
+## Summary of Changes\n\nAll 22 beans completed (14 tasks + 8 fixes). Merged to main. 51 tests passing. Holistic review approved (cycle 2).

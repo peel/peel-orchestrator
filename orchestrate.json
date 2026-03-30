@@ -22,7 +22,7 @@
   },
   "evaluators": {
     "attended": false,
-    "max_dispatches_per_task": 60,
+    "max_dispatches_per_task": 10,
     "domains": {
       "general": {
         "template": "evaluator-general",

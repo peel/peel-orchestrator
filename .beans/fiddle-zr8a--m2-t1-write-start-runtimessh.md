@@ -1,10 +1,11 @@
 ---
 # fiddle-zr8a
 title: 'M2-T1: Write start-runtimes.sh'
-status: todo
+status: completed
 type: task
+priority: normal
 created_at: 2026-03-29T19:21:53Z
-updated_at: 2026-03-29T19:21:53Z
+updated_at: 2026-03-30T05:54:21Z
 parent: fiddle-seov
 ---
 
