@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# resolve-domains.sh — Parse a task's domain list and resolve each to full evaluator config.
+# Exit 0 = all resolved (including fallbacks), 1 = app error, 2 = invalid input.
+set -euo pipefail
+
+DOMAINS=""
+CONFIG=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --domains) DOMAINS="$2"; shift 2;;
+    --config) CONFIG="$2"; shift 2;;
+    *) echo '{"error":"unknown argument: '"$1"'"}' >&2; exit 2;;
+  esac
+done
+
+# Validate required args
+[[ -n "$DOMAINS" ]] || { echo '{"error":"missing --domains"}' >&2; exit 2; }
+[[ -n "$CONFIG" ]]  || { echo '{"error":"missing --config"}' >&2; exit 2; }
+[[ -f "$CONFIG" ]]  || { echo '{"error":"config file not found: '"$CONFIG"'"}' >&2; exit 2; }
+
+# Check dependencies
+command -v jq >/dev/null 2>&1 || { echo '{"error":"jq not found"}' >&2; exit 2; }
+
+# Validate JSON
+if ! jq empty "$CONFIG" 2>/dev/null; then
+  echo '{"error":"invalid JSON in config file"}' >&2
+  exit 2
+fi
+
+# Split comma-separated domains into a JSON array of strings
+DOMAIN_LIST=$(echo "$DOMAINS" | jq -R '[split(",")[] | select(length > 0)]')
+
+# Resolve each domain against evaluators.domains in config
+OUTPUT=$(jq -n \
+  --argjson domain_list "$DOMAIN_LIST" \
+  --slurpfile config "$CONFIG" '
+  ($config[0].evaluators.domains) as $all_domains |
+  ($all_domains.general // {}) as $general_defaults |
+  [
+    $domain_list[] |
+    . as $name |
+    if $all_domains[$name] then
+      # Known domain: copy all fields, add domain and resolved_via
+      $all_domains[$name] + {
+        "domain": $name,
+        "resolved_via": "config"
+      }
+    else
+      # Unknown domain: fallback to general defaults
+      $general_defaults + {
+        "domain": $name,
+        "template": "evaluator-general",
+        "resolved_via": "fallback"
+      }
+    end
+  ]
+')
+
+echo "$OUTPUT"
+exit 0
