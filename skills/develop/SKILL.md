@@ -105,12 +105,26 @@ The implementer returns one of:
 
 ### 1e. Dispatch Evaluator
 
-Dispatch an evaluator subagent using `skills/evaluate/SKILL.md` protocol with the `evaluator-general` domain template (`skills/evaluate/evaluator-general.md`).
+<HARD-GATE>
+If a domain has runtime configured in orchestrate.json (i.e., the domain entry has a "runtime" array):
+  1. Run: scripts/start-runtimes.sh --domains <resolved-domains-file>
+  2. If exit 0: runtime is ready. Proceed to evaluator dispatch.
+  3. If exit 3 (harness failure): retry once. If retry fails, escalate to human without counting against dispatch budget.
+  4. If exit 1 or 2: this is an app/config issue. Include the error in evaluator context.
+After evaluation completes:
+  5. Run: scripts/stop-runtimes.sh --state <runtime-state-file>
+Do NOT skip runtime start/stop. Do NOT leave processes running after evaluation.
+</HARD-GATE>
+
+Dispatch an evaluator subagent using `skills/evaluate/SKILL.md` protocol with the appropriate domain template (e.g., `skills/evaluate/evaluator-general.md`, `evaluator-frontend.md`, or `evaluator-backend.md`).
 
 Provide:
 - The full diff since BASE_SHA: `git diff {BASE_SHA}...HEAD`
 - The bean's acceptance criteria
 - The domain template's scoring dimensions
+- If runtime is configured: `skills/runtime-evidence/SKILL.md` content (loaded alongside domain template)
+- If runtime is configured: runtime state (port, domain) so the evaluator can interact with the running app
+- If `runtime_agent` or `stack_agents` are configured for the domain in orchestrate.json: read those agent files and include their content in the evaluator prompt context
 
 The evaluator returns a single scorecard JSON containing both per-dimension scores (under `.domains`) and pass/fail criteria (under `.criteria`). Before running threshold checks, save and split the output:
 
@@ -185,7 +199,7 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 
 - **Single domain:** Only `general` domain. No `resolve-domains.sh` needed (M2 adds multi-domain).
 - **Single provider:** The evaluator scorecard IS the final scorecard. No `merge-scorecards.sh` needed (M3 adds multi-provider).
-- **No runtime:** Evaluator reviews code only. No `start-runtimes.sh` / `stop-runtimes.sh` (M2 adds runtime).
+- ~~**No runtime:**~~ Runtime lifecycle added in M2. Start/stop runtimes around evaluator dispatch when domain has runtime configured.
 - **No attended gate:** All evaluation is unattended. The `attended` config key is read but ignored (M5 adds attended mode).
 - **No antipatterns:** No antipattern detection layer (M5 adds this).
 
