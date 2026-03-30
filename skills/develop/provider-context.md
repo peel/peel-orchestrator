@@ -22,3 +22,51 @@ Respond with your analysis only — no preamble, no meta-commentary.
 
 ## Instructions
 {INSTRUCTIONS}
+
+## Scorecard Output Requirements
+
+When your role is `evaluator`, you MUST output a valid JSON scorecard as the **last content block** in your response. The scorecard must be a single JSON object (not wrapped in markdown fences) conforming to the schema below.
+
+Any text before the scorecard is treated as analysis/reasoning and is discarded. Only the final JSON block is parsed.
+
+### Scorecard JSON Schema
+
+```json
+{
+  "provider": "<your-provider-name>",
+  "task_id": "<bean-id>",
+  "iteration": <number>,
+  "timestamp": "<ISO-8601>",
+  "domains": {
+    "<domain-name>": {
+      "dimensions": {
+        "<dimension-name>": {
+          "score": <1-10>,
+          "threshold": <1-10>,
+          "comment": "<brief justification>"
+        }
+      }
+    }
+  },
+  "criteria": [
+    {
+      "id": "<criterion-id>",
+      "pass": <true|false>,
+      "evidence": "<brief evidence>"
+    }
+  ],
+  "antipatterns_detected": [],
+  "guidance": "<actionable fix instructions if any dimension is below threshold>",
+  "dispatch_count": 1
+}
+```
+
+### Field Requirements
+
+- **provider** (required): Your provider identifier (e.g., `"codex"`, `"gemini"`). Must match the provider name used to dispatch you.
+- **domains** (required): Object keyed by domain name. Each domain contains a `dimensions` object with scored dimensions.
+- **score** (required): Integer 1-10 for each dimension.
+- **threshold** (required): The minimum passing score for this dimension (copied from the evaluation template).
+- **criteria** (required): Array of pass/fail criteria results. Each entry has `id`, `pass` (boolean), and `evidence`.
+- **guidance** (required): Actionable instructions for the implementer. Empty string if all dimensions pass.
+- **dispatch_count** (required): Always `1` (each scorecard represents one dispatch).

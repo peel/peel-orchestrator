@@ -131,9 +131,9 @@ The implementer returns one of:
 - **BLOCKED** → mark bean `needs-attention` with reason, escalate to human, move to next bean
 - **NEEDS_CONTEXT** → provide the requested context and re-dispatch (back to step 1d)
 
-### 1f. Dispatch Per-Domain Evaluators
+### 1f. Dispatch Per-Domain, Per-Provider Evaluators
 
-For EACH resolved domain (from `resolved-domains.json` produced in step 1c), dispatch an evaluator. Process domains in `runtime_order` if specified, otherwise in the order listed in the `domains` array.
+For EACH resolved domain (from `resolved-domains.json` produced in step 1c), dispatch evaluators for EACH provider. Process domains in `runtime_order` if specified, otherwise in the order listed in the `domains` array.
 
 #### Runtime Start (per domain)
 
@@ -147,11 +147,30 @@ If a domain has runtime configured (i.e., the resolved domain entry has a "runti
 Do NOT skip runtime start. Do NOT proceed to evaluator dispatch if runtime is required but not started.
 </HARD-GATE>
 
-#### Per-Domain Evaluator Dispatch
+#### Per-Domain, Per-Provider Evaluator Dispatch
 
-For each resolved domain, dispatch an evaluator subagent using `skills/evaluate/SKILL.md` protocol with that domain's template (e.g., `skills/evaluate/evaluator-general.md`, `evaluator-frontend.md`, or `evaluator-backend.md` — as specified in the resolved domain's `template` field).
+For each resolved domain, read the `providers` array from the resolved domain config (e.g., `{"domain": "general", "providers": ["claude", "codex"], ...}`). If no `providers` array is present, default to `["claude"]`.
 
-Provide:
+For each provider in the domain's `providers` array, dispatch an evaluator:
+
+**If provider is `claude`:** Dispatch an evaluator subagent using `skills/evaluate/SKILL.md` protocol with that domain's template (e.g., `skills/evaluate/evaluator-general.md`, `evaluator-frontend.md`, or `evaluator-backend.md` — as specified in the resolved domain's `template` field).
+
+**If provider is external (not `claude`):** Dispatch via the provider hook:
+
+```bash
+hooks/dispatch-provider.sh <provider> \
+  --role evaluator \
+  --topic "Evaluate domain: {domain}" \
+  --instructions "$(cat skills/evaluate/{template}.md)" \
+  --diff-file <diff-file> \
+  --design-doc-file <design-doc-file>
+```
+
+The external provider receives the same context as the claude evaluator: evaluation protocol, domain template, calibration data, diff, and criteria. The external provider MUST return a valid JSON scorecard as its last content block (see `skills/develop/provider-context.md` for schema requirements).
+
+**Each provider dispatch counts as 1 toward the dispatch budget**, regardless of provider type. For example, 2 providers x 2 domains = 4 dispatches per iteration.
+
+Provide to all evaluators (claude and external):
 - The full diff since BASE_SHA: `git diff {BASE_SHA}...HEAD`
 - The bean's acceptance criteria
 - The domain template's scoring dimensions
@@ -159,25 +178,61 @@ Provide:
 - If runtime is configured: runtime state (port, domain) so the evaluator can interact with the running app
 - If `runtime_agent` or `stack_agents` are configured for the domain in orchestrate.json: read those agent files and include their content in the evaluator prompt context
 
-Each evaluator returns a single scorecard JSON containing both per-dimension scores (under `.domains`) and pass/fail criteria (under `.criteria`). Save each domain's scorecard separately:
+Each evaluator (regardless of provider) returns a single scorecard JSON containing both per-dimension scores (under `.domains`) and pass/fail criteria (under `.criteria`). The scorecard MUST include a `"provider"` field identifying which provider produced it. Save each provider's scorecard per domain separately:
 
 ```bash
-# Save per-domain scorecard
-cat > scorecard-{domain}.json   # ← evaluator output for this domain
+# Save per-provider, per-domain scorecard
+cat > scorecard-{domain}-{provider}.json   # ← evaluator output for this domain+provider
 
-# Extract criteria array
-jq '.criteria' scorecard-{domain}.json > criteria-{domain}.json
+# Increment dispatch_count for EACH provider dispatch
+dispatch_count=$((dispatch_count + 1))
 ```
 
 #### Runtime Stop (after all domains evaluated)
 
 <HARD-GATE>
-After ALL domain evaluators have completed:
+After ALL domain evaluators (all providers, all domains) have completed:
   Run: scripts/stop-runtimes.sh --state <runtime-state-file>
 Do NOT leave processes running after evaluation.
 </HARD-GATE>
 
-### 1g. Merge Cross-Domain Scorecards
+### 1g. Merge Provider Scorecards
+
+After all provider scorecards are collected for each domain, merge them before threshold checks.
+
+<HARD-GATE>
+After receiving ALL provider scorecards for a domain, you MUST run:
+  scripts/merge-scorecards.sh < scorecards-array.json > scorecard-{domain}.json 2> disagreements-{domain}.json
+Use the merged scorecard for threshold checks. Do NOT merge scores yourself.
+</HARD-GATE>
+
+For each domain, build a JSON array of all provider scorecards for that domain, then pipe to `merge-scorecards.sh`:
+
+```bash
+# Collect all provider scorecards for a domain into a JSON array
+jq -s '.' scorecard-{domain}-*.json | \
+  scripts/merge-scorecards.sh > scorecard-{domain}.json 2> disagreements-{domain}.json
+```
+
+The merged scorecard uses conservative (min) scoring: for each dimension, the final score is the minimum across providers. Each dimension includes `provider_scores` showing per-provider breakdown:
+
+```json
+{
+  "domains": {
+    "general": {
+      "dimensions": {
+        "correctness": {"score": 7, "threshold": 7, "provider_scores": {"claude": 8, "codex": 7}}
+      }
+    }
+  }
+}
+```
+
+Disagreements (spread >= 3 between providers on any dimension) are written to `disagreements-{domain}.json`. Include disagreement data in evaluator feedback when re-dispatching implementers.
+
+If a domain has only one provider, `merge-scorecards.sh` still runs (single-element array) to ensure consistent scorecard format.
+
+### 1h. Merge Cross-Domain Scorecards
 
 After all domain evaluators return, merge their scorecards:
 
@@ -187,21 +242,24 @@ After all domain evaluators return, merge their scorecards:
 - Each domain must independently meet its own thresholds
 
 ```bash
-# Merge per-domain scorecards into a single merged scorecard
+# Merge per-domain (already provider-merged) scorecards into a single cross-domain scorecard.
+# Use only scorecard-{domain}.json files (not scorecard-{domain}-{provider}.json raw files).
 jq -s '
   { domains: (reduce .[] as $s ({}; . + ($s.domains // {}))) ,
     criteria: [.[] | .criteria[]?] }
-' scorecard-*.json > scorecard.json
+' scorecard-general.json scorecard-frontend.json ... > scorecard.json
 
 # Extract merged criteria
 jq '.criteria' scorecard.json > criteria.json
 ```
 
+List only the per-domain merged scorecards (one per resolved domain from step 1g). Do NOT include raw per-provider scorecards (`scorecard-{domain}-{provider}.json`) in this merge.
+
 On failure, the merged scorecard identifies which domain(s) failed. Pass the merged scorecard to `check-thresholds.sh` — it already handles multi-domain scorecards.
 
-Both files (`scorecard.json` and `criteria.json`) are then passed to `check-thresholds.sh` in step 1h.
+Both files (`scorecard.json` and `criteria.json`) are then passed to `check-thresholds.sh` in step 1i.
 
-### 1h. Check Thresholds
+### 1i. Check Thresholds
 
 <HARD-GATE>
 After receiving evaluator scorecards, you MUST run:
@@ -210,9 +268,9 @@ After receiving evaluator scorecards, you MUST run:
 Act on the scripts' verdicts. Do NOT compute thresholds or convergence yourself.
 </HARD-GATE>
 
-Run `check-thresholds.sh` with the merged scorecard (from step 1g). It produces a verdict: `PASS` (exit 0) or `FAIL` (exit 1). The output includes a `dimensions` flat map (`{"frontend.correctness": 8, "backend.api_quality": 7, ...}`) with all per-domain dimension scores. On `FAIL`, the output identifies which domain(s) did not meet thresholds. This output can be passed directly to `check-convergence.sh` as the `--current` file and appended to the history array for future convergence checks.
+Run `check-thresholds.sh` with the merged scorecard (from step 1h). It produces a verdict: `PASS` (exit 0) or `FAIL` (exit 1). The output includes a `dimensions` flat map (`{"frontend.correctness": 8, "backend.api_quality": 7, ...}`) with all per-domain dimension scores. On `FAIL`, the output identifies which domain(s) did not meet thresholds. This output can be passed directly to `check-convergence.sh` as the `--current` file and appended to the history array for future convergence checks.
 
-### 1i. Check Convergence
+### 1j. Check Convergence
 
 Run `check-convergence.sh` with the `--current` file (the check-thresholds.sh output, which includes the `dimensions` flat map), the `--history` file (a JSON array of prior check-thresholds.sh outputs), and dispatch budget.
 
@@ -228,15 +286,17 @@ If check-convergence.sh returns DISPATCHES_EXCEEDED (exit 2), you MUST stop and 
 Do NOT continue iterating. Do NOT lower thresholds. Do NOT rationalize.
 </HARD-GATE>
 
-### 1j. Log Evaluation
+### 1k. Log Evaluation
 
 <HARD-GATE>
 After every evaluation cycle, you MUST run:
   scripts/append-eval-log.sh --bean-id {id} --iteration {N} --scorecard {scorecard_file} --dispatches {count} --guidance {text}
+The --dispatches {count} MUST reflect actual provider dispatches (each provider dispatch = 1), not just iterations.
+For example, 2 providers x 2 domains = 4 dispatches per iteration.
 Do NOT skip logging. Do NOT write the log entry manually.
 </HARD-GATE>
 
-### 1k. Act on Convergence Result
+### 1l. Act on Convergence Result
 
 | Result | Action |
 |---|---|
@@ -374,7 +434,7 @@ User picks: merge, PR, keep, or discard. Worktree cleanup happens here.
 These constraints scope the evaluator loop for Milestone 1. Later milestones remove them:
 
 - ~~**Single domain:**~~ Multi-domain support added in M3. Domain resolution via `resolve-domains.sh`, per-domain evaluator dispatch, and cross-domain scorecard merge are now active.
-- **Single provider:** The evaluator scorecard IS the final scorecard. No `merge-scorecards.sh` needed (M4 adds multi-provider).
+- ~~**Single provider:**~~ Multi-provider evaluation added in M4. Per-provider dispatch via Agent (claude) or `hooks/dispatch-provider.sh` (external), with `merge-scorecards.sh` merging provider scorecards before threshold checks.
 - ~~**No runtime:**~~ Runtime lifecycle added in M2. Start/stop runtimes around evaluator dispatch when domain has runtime configured.
 - ~~**No holistic review:**~~ Holistic review added in M3. After per-task loop, dispatch holistic reviewer for cross-domain integration check with remediation loop.
 - **No attended gate:** All evaluation is unattended. The `attended` config key is read but ignored (M5 adds attended mode).
@@ -395,6 +455,8 @@ These constraints scope the evaluator loop for Milestone 1. Later milestones rem
 - **Never** exceed `max_iterations` for holistic review without escalating to human
 - **Never** dispatch holistic review without starting all domain runtimes first
 - **Never** leave runtimes running after holistic review completes
+- **Never** skip `merge-scorecards.sh` when multiple providers produce scorecards — merging is a HARD-GATE
+- **Never** merge provider scores manually — always use the merge script
 
 ## Restart Resilience
 
