@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash hooks/archive-guard.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

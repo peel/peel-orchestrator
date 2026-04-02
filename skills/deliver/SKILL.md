@@ -207,3 +207,10 @@ After user confirms evaluator evolve:
 ```bash
 beans update <epic-id> --status completed
 ```
+
+### Step 7: Archive
+
+Invoke archive to clean up stale artifacts:
+```
+Skill(skill: "fiddle:archive", args: "--epic <epic-id>")
+```

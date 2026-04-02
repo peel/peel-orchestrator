@@ -1,5 +1,9 @@
 .worktrees/
 
+# Archived beans and plans (kept locally, excluded from repo)
+.beans/archive/
+.archive/
+
 # Evaluation artifacts (temporary JSON files produced during develop loop)
 scorecard*.json
 verdict.json
