@@ -1,6 +1,6 @@
 ---
 name: fiddle:deliver
-description: Run the DELIVER phase — drift analysis comparing design to implementation, documentation update via deliver-docs, evaluator evolve (calibration/antipattern updates), and epic closure. Requires a completed epic.
+description: Run the DELIVER phase — drift analysis comparing design to implementation, documentation update via deliver-docs, product artifact generation (if configured), evaluator evolve (calibration/antipattern updates), and epic closure. Requires a completed epic.
 argument-hint: --epic <id>
 ---
 
@@ -82,11 +82,58 @@ This updates SYSTEM.md, creates ADRs for architectural decisions, and appends to
 
 Present the deliver-docs results to the user for confirmation. Wait for approval.
 
-### Step 4: Evaluator Evolve
+### Step 4: Product Artifact Generation
+
+Skip this step if `deliver.product_artifacts` is not configured in `orchestrate.json`, or if the `artifacts` array is empty or missing.
+
+#### Configuration
+
+Read from `orchestrate.json`:
+```json
+"deliver": {
+  "product_artifacts": {
+    "templates_path": "docs/product/templates",
+    "output_path": "docs/releases",
+    "artifacts": ["release-notes", "social"]
+  }
+}
+```
+
+- `templates_path` — directory containing one markdown file per artifact type (e.g., `release-notes.md`, `social.md`). Each file is **instructions** for generating that artifact — voice, format, audience, examples. The project supplies these.
+- `output_path` — where generated artifacts are written
+- `artifacts` — which artifact types to generate (must match template filenames without extension)
+
+#### Process
+
+Create `<output_path>` directory if it does not exist.
+
+For each artifact type in `artifacts`:
+
+1. Read the template from `<templates_path>/<artifact-type>.md`. If the template file does not exist, warn: "Template missing for `<artifact-type>` at `<expected-path>`. Skipping." and continue with remaining artifacts.
+2. Gather context:
+   - Design spec — read the epic bean body (`beans show <epic-id>`), find the line starting with `Design:` and use that path. If no `Design:` line, look for a `Plan:` line and check for a sibling `-design.md` file in the same directory.
+   - Drift analysis results (from Step 2 — "implemented as designed" and "added beyond design" are the most useful)
+   - Git diff summary
+   - Product docs — if they exist, read `docs/product/VISION.md` and `docs/product/GTM.md` for voice/positioning context. These are optional.
+3. Generate the artifact following the template's instructions, using the gathered context
+4. Write to `<output_path>/YYYY-MM-DD-<epic-id>-<artifact-type>.md`. Overwrite if the file already exists.
+
+Present all generated artifacts to the user:
+```
+"Product artifacts generated:
+- Release notes: <path>
+- Social copy: <path>
+
+Review and confirm?"
+```
+
+Wait for user confirmation. Apply any edits the user requests before proceeding.
+
+### Step 5: Evaluator Evolve
 
 After documentation is confirmed, review the evaluation artifacts from this run.
 
-#### 4a. Review Scorecards
+#### 5a. Review Scorecards
 
 Collect all evaluator scorecards produced during the epic (stored in `.beans/` eval-log beans).
 Present them to the user:
@@ -101,7 +148,7 @@ Where did the evaluator get it wrong?"
 
 Wait for user corrections before proceeding.
 
-#### 4b. Update Calibration
+#### 5b. Update Calibration
 
 For each correction the user provides, append an anchor to the matching calibration file `docs/evaluator-calibration-<domain>.md`:
 
@@ -116,7 +163,7 @@ If the calibration file does not exist yet, create it with a top-level heading `
 
 After writing calibration anchors, ensure `orchestrate.json` has `evaluators.domains.<domain>.calibration` set to the file path (e.g., `docs/evaluator-calibration-<domain>.md`). This wires the calibration file into the develop loop so evaluators receive it on future runs.
 
-#### 4c. Add Antipatterns
+#### 5c. Add Antipatterns
 
 For each real failure found post-delivery (bugs, regressions, missed requirements), append to `docs/antipatterns-<domain>.md`:
 
@@ -131,13 +178,13 @@ If the antipattern file does not exist yet, create it with a top-level heading `
 
 After writing antipatterns, ensure `orchestrate.json` has `evaluators.domains.<domain>.antipatterns` set to the file path (e.g., `docs/antipatterns-<domain>.md`). This wires the antipattern file into the develop loop so both implementer and evaluator receive it on future runs.
 
-#### 4d. Adjust Thresholds
+#### 5d. Adjust Thresholds
 
 If the evaluator was consistently too strict or too lenient across multiple tasks:
 - Update the relevant threshold in `orchestrate.json` at `evaluators.domains.<domain>.thresholds`
 - Present the change to the user for confirmation before writing
 
-#### 4e. Review Iteration Counts
+#### 5e. Review Iteration Counts
 
 High iteration counts (>5 develop-evaluate cycles on a single task) suggest calibration gaps. Identify dimensions that caused the most iterations and focus calibration updates (4b) on those dimensions.
 
@@ -154,7 +201,7 @@ Proceed to close epic?"
 
 Wait for user confirmation.
 
-### Step 5: Close Epic
+### Step 6: Close Epic
 
 After user confirms evaluator evolve:
 ```bash

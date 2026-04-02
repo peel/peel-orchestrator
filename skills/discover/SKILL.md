@@ -39,6 +39,14 @@ Skill(skill: "fiddle:discover-docs", args: "<topic>")
 
 This reads existing docs, CLAUDE.md, beans, and relevant source files. It produces a structured summary of what exists, what's relevant, and what gaps remain.
 
+#### User Research Context
+
+After discover-docs, check for user research artifacts:
+- Persona files in `docs/product/personas/` — if they exist, load them. Note which personas are relevant to the topic being discovered.
+- Latest insight summary in `docs/product/insights/` — if it exists, load it. Surface any themes or open questions relevant to the topic.
+
+If these artifacts exist, include relevant findings when presenting the discovery summary. If they don't exist, skip silently.
+
 ### Step 2: External Research
 
 If providers are configured (default: codex):
