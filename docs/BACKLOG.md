@@ -13,3 +13,8 @@
      Tags: #idea #debt #optimization #feature #experiment #infrastructure
 -->
 
+### 2026-04-02 — Skill size estimates are unreliable for verbatim extraction
+Design spec predicted 12KB for develop-loop; actual was 20.5KB (71% over). JSON examples, code blocks, and HARD-GATE blocks are denser than prose and harder to estimate. Future specs involving skill extraction should measure the source line range directly rather than estimating.
+Origin: implementation (develop modularization epic fiddle-wdg0)
+Tags: #debt #optimization
+
