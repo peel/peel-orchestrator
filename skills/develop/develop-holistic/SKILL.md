@@ -1,6 +1,6 @@
 ---
 name: fiddle:develop-holistic
-description: Holistic cross-domain review — assess the full system as an integrated whole after per-task evaluation completes. Creates remediation beans if needed.
+description: Use after all per-task evaluations complete — assesses cross-domain integration and creates remediation beans
 argument-hint: --epic <id>
 ---
 

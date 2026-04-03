@@ -1,6 +1,6 @@
 ---
 name: fiddle:runtime-evidence
-description: Runtime evidence gathering guidance for evaluators — interact with the running app before scoring
+description: Use when an evaluator needs to interact with a running application before scoring dimensions
 ---
 
 # Runtime Evidence

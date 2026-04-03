@@ -1,6 +1,6 @@
 ---
 name: fiddle:evaluate
-description: Evaluator protocol — score an implementation against its task spec, domain template, and criteria. Returns a scorecard JSON to stdout.
+description: Use when scoring an implementation against its task spec — dispatched by develop-loop, not directly
 ---
 
 # Evaluate
@@ -138,6 +138,16 @@ Return EXACTLY this JSON structure to stdout. No markdown fences, no commentary 
 - Your evidence says "appears to" or "seems correct" — trace it, confirm it
 - You are scoring above threshold because the code "looks clean" without checking behavior
 - A dimension has no evidence — you MUST go back and gather it
+
+## Rationalization Prevention
+
+| Rationalization | Reality |
+|---|---|
+| "Code looks clean, score high" | Clean structure ≠ correct behavior. Trace the logic. |
+| "Tests pass so correctness is fine" | Tests may not cover the criterion. Check coverage. |
+| "Implementer already explained this" | Implementer claims are marketing. Verify independently. |
+| "Prior scorecard was high, maintain it" | Each iteration scored fresh. Regressions happen. |
+| "No antipatterns configured, skip check" | Check the code anyway. Antipattern file is supplementary, not exhaustive. |
 
 ## Output Contract
 

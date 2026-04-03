@@ -1,6 +1,6 @@
 ---
 name: fiddle:develop-loop
-description: Per-task evaluation loop — implement, evaluate, converge for a single bean. Called by fiddle:develop orchestrator.
+description: Use when a single task bean needs implementation and evaluation — called by fiddle:develop, not directly
 argument-hint: --bean <id> --epic <id>
 ---
 
@@ -37,31 +37,22 @@ Store `max_dispatches_per_task` for the convergence budget. Store `domains` for 
 
 ## Iron Laws
 
-These apply to EVERY task. There are no exceptions.
+Read and internalize: `skills/develop/iron-laws.md`
 
-1. Every task gets evaluated through the full loop. No exceptions for domain, complexity, or task type.
-2. Every evaluation uses the full chain: domain resolution → implementer → evaluator → scorecard merge → convergence scripts.
-3. "General" domain is not "optional" domain. No configured runtime does not mean no evaluation.
-4. Implementer success is not evaluation. Self-reported passing is not convergence.
-5. If you are thinking "this is straightforward enough to skip," that thought is the signal to not skip.
+## Rationalization Prevention
+
+| Rationalization | Reality |
+|---|---|
+| "Implementer said DONE, skip evaluation" | DONE is a claim. Evaluation is evidence. |
+| "General domain only, lightweight eval" | General domain gets the full chain. No shortcuts. |
+| "Simple task, one iteration enough" | Convergence requires two consecutive passes. Run the scripts. |
+| "Runtime not configured, skip runtime start" | No runtime ≠ no evaluation. General domain still applies. |
+| "Scorecard looks good, skip merge scripts" | You cannot eyeball conservative min scoring. Run merge-scorecards.sh. |
+| "Budget is high, no need to track dispatches" | Budget exists to prevent infinite loops. Track every dispatch. |
 
 ## 1a. Restart Check
 
-If a bean is already `in-progress` (session restart or crash recovery):
-
-<HARD-GATE>
-On session restart or when encountering an in-progress bean, you MUST run:
-  scripts/parse-eval-log.sh --bean-id {id}
-  scripts/assess-git-state.sh --base-sha {sha}
-Resume based on script output. Do NOT guess state from memory or context.
-</HARD-GATE>
-
-**Interpreting restart state:**
-- `parse-eval-log.sh` returns `{base_sha, total_dispatches, iteration_count, last_verdict, last_guidance}`.
-- `assess-git-state.sh` returns `{state: CLEAN|DIRTY|CORRUPTED}`.
-  - **CLEAN:** Code is committed. Resume from domain resolution and evaluation (step 1c) if last verdict was not CONVERGED, or skip to next task if CONVERGED.
-  - **DIRTY:** Uncommitted changes exist. Commit or stash them, then resume from evaluation.
-  - **CORRUPTED:** Merge conflict or broken state. Escalate to human — mark bean `needs-attention`.
+If bean is `in-progress`, follow: `skills/develop/develop-loop/restart-recovery.md`
 
 ## 1b. Initialize Evaluation Log
 
@@ -169,16 +160,7 @@ The external provider receives the same context as the claude evaluator: evaluat
 
 **Each provider dispatch counts as 1 toward the dispatch budget**, regardless of provider type. For example, 2 providers x 2 domains = 4 dispatches per iteration.
 
-Provide to all evaluators (claude and external) in the following **context loading order**:
-
-1. **Evaluation protocol** — `skills/evaluate/SKILL.md`
-2. **Domain template** — `skills/evaluate/evaluator-<domain>.md` (as specified in the resolved domain's `template` field, e.g., `evaluator-general.md`, `evaluator-frontend.md`)
-3. **Project calibration** (if exists) — read `evaluators.domains.<domain>.calibration` from `orchestrate.json`. If the key is present, read the file at that path (relative to project root) and include its content immediately after the domain template. If the key is absent, check whether the default path `docs/evaluator-calibration-<domain>.md` exists (this file is created when the attended gate writes anchors in step 1i). If the default file exists, load it. If neither the config key nor the default file exists, skip.
-4. **Runtime evidence** (if runtime configured) — `skills/runtime-evidence/SKILL.md` content, plus runtime state (port, domain) so the evaluator can interact with the running app
-5. **Runtime/stack agents** (if configured) — if `runtime_agent` or `stack_agents` are configured for the domain in orchestrate.json, read those agent files and include their content
-6. **Task criteria** — the bean's acceptance criteria and the domain template's scoring dimensions
-7. **Prior scorecards** (if iteration 2+) — the full diff since BASE_SHA (`git diff {BASE_SHA}...HEAD`) and the previous iteration's scorecard with evaluator guidance
-8. **Antipatterns** (if configured) — if `evaluators.domains.<domain>.antipatterns` is configured in orchestrate.json, read the antipatterns file and inject its content into the evaluator's `{ANTIPATTERNS}` placeholder. This is loaded last in the evaluator context.
+Load evaluator context in order specified by: `skills/develop/develop-loop/context-loading-order.md`
 
 Each evaluator (regardless of provider) returns a single scorecard JSON containing both per-dimension scores (under `.domains`) and pass/fail criteria (under `.criteria`). The scorecard MUST include a `"provider"` field identifying which provider produced it. Save each provider's scorecard per domain separately:
 
@@ -198,121 +180,17 @@ After ALL domain evaluators (all providers, all domains) have completed:
 Do NOT leave processes running after evaluation.
 </HARD-GATE>
 
-## 1g. Merge Provider Scorecards
+## 1g–1h. Merge Scorecards
 
-After all provider scorecards are collected for each domain, merge them before threshold checks.
-
-<HARD-GATE>
-After receiving ALL provider scorecards for a domain, you MUST run:
-  scripts/merge-scorecards.sh < scorecards-array.json > scorecard-{domain}.json 2> disagreements-{domain}.json
-Use the merged scorecard for threshold checks. Do NOT merge scores yourself.
-</HARD-GATE>
-
-For each domain, build a JSON array of all provider scorecards for that domain, then pipe to `merge-scorecards.sh`:
-
-```bash
-# Collect all provider scorecards for a domain into a JSON array
-jq -s '.' scorecard-{domain}-*.json | \
-  scripts/merge-scorecards.sh > scorecard-{domain}.json 2> disagreements-{domain}.json
-```
-
-The merged scorecard uses conservative (min) scoring: for each dimension, the final score is the minimum across providers. Each dimension includes `provider_scores` showing per-provider breakdown:
-
-```json
-{
-  "domains": {
-    "general": {
-      "dimensions": {
-        "correctness": {"score": 7, "threshold": 7, "provider_scores": {"claude": 8, "codex": 7}}
-      }
-    }
-  }
-}
-```
-
-Disagreements (spread >= 3 between providers on any dimension) are written to `disagreements-{domain}.json`. Include disagreement data in evaluator feedback when re-dispatching implementers.
-
-After merging all domains, combine disagreement files for the eval log:
-
-```bash
-# Merge per-domain disagreement files into a single array
-jq -s 'add // []' disagreements-*.json > disagreements.json
-```
-
-Pass the combined `disagreements.json` to `append-eval-log.sh` in step 1l.
-
-If a domain has only one provider, `merge-scorecards.sh` still runs (single-element array) to ensure consistent scorecard format.
+Merge provider and cross-domain scorecards following: `skills/develop/develop-loop/scorecard-merge.md`
 
 <GATE>Proceed to threshold checks (1j). Do not skip to next task.</GATE>
 
-## 1h. Merge Cross-Domain Scorecards
-
-After all domain evaluators return, merge their scorecards:
-
-- **Union** scorecards across domains — each domain is scored independently
-- The merged scorecard has all domains under `.domains`: `{"frontend": {...}, "backend": {...}}`
-- **No shared dimensions** — `domain_spec_fidelity` in frontend is completely independent from `domain_spec_fidelity` in backend
-- Each domain must independently meet its own thresholds
-
-```bash
-# Merge per-domain (already provider-merged) scorecards into a single cross-domain scorecard.
-# Use only scorecard-{domain}.json files (not scorecard-{domain}-{provider}.json raw files).
-jq -s '
-  { domains: (reduce .[] as $s ({}; . + ($s.domains // {}))) ,
-    criteria: [.[] | .criteria[]?] }
-' scorecard-general.json scorecard-frontend.json ... > scorecard.json
-
-# Extract merged criteria
-jq '.criteria' scorecard.json > criteria.json
-```
-
-List only the per-domain merged scorecards (one per resolved domain from step 1g). Do NOT include raw per-provider scorecards (`scorecard-{domain}-{provider}.json`) in this merge.
-
-On failure, the merged scorecard identifies which domain(s) failed. Pass the merged scorecard to `check-thresholds.sh` — it already handles multi-domain scorecards.
-
-Both files (`scorecard.json` and `criteria.json`) are then passed to the attended gate (step 1i) and subsequently to `check-thresholds.sh` (step 1j).
-
 ## 1i. Attended Scorecard Gate
 
-<HARD-GATE>
-IF evaluators.attended is true in orchestrate.json:
-  After merging cross-domain scorecards (step 1h), before threshold checks, you MUST present the merged scorecard to the human for review.
+If `evaluators.attended` is true in orchestrate.json, follow: `skills/develop/develop-loop/attended-gate.md`
 
-  1. Show the full merged scorecard with ALL dimension scores across ALL domains.
-  2. Highlight any dimension scoring BELOW its threshold (show score and threshold).
-  3. Highlight any provider disagreements from disagreements.json (show dimension, provider scores, spread).
-  4. Ask: "Do you agree with these scores? Correct any you disagree with, or confirm to proceed."
-
-  If the human corrects a score:
-    a. Record the correction: {domain, dimension, evaluator_score, human_score, reason}
-    b. Update the merged scorecard (scorecard.json) with the human's corrected score for that dimension.
-    c. Encode the correction as a calibration anchor in the project's calibration file (see below).
-    d. Use the corrected scorecard for ALL subsequent threshold and convergence checks.
-
-  If the human confirms: proceed with evaluator scores unchanged.
-
-Do NOT skip the attended gate when evaluators.attended is true.
-Do NOT proceed to threshold checks without human confirmation when attended mode is active.
-</HARD-GATE>
-
-### Calibration Anchor Encoding
-
-When the human corrects a score during attended review, append a calibration anchor to the project's calibration file for that domain.
-
-**Locate the calibration file:** Read `evaluators.domains.<domain>.calibration` from `orchestrate.json`. If the key is present, use that path. If absent, default to `docs/evaluator-calibration-<domain>.md`. Create the file if it does not exist.
-
-**Append the anchor in this format:**
-
-```markdown
-## [dimension] — Correction (YYYY-MM-DD)
-**Evaluator scored:** X/10 — "[evaluator evidence from scorecard]"
-**Human corrected to:** Y/10 — "[human's stated reason]"
-**Anchor:** For this project, score Y means: [human's description of what that score level looks like]
-```
-
-Ask the human for their reason and description when they correct a score. The anchor becomes part of the evaluator's context on future dispatches (loaded at position 3 in the context loading order — see step 1f).
-
-When `evaluators.attended` is false, skip this step entirely — proceed directly to threshold checks (step 1j).
+When `evaluators.attended` is false, skip directly to threshold checks (step 1j).
 
 ## 1j. Check Thresholds
 
