@@ -52,6 +52,16 @@ Read `orchestrate.json` from project root. Extract the `evaluators` block:
 
 Store `max_dispatches_per_task` for the convergence budget. Store `domains` for evaluator dispatch. Store `evaluators.holistic.providers` for holistic review dispatch (default: `["claude"]`).
 
+## Iron Laws
+
+These apply to EVERY task. There are no exceptions.
+
+1. Every task gets evaluated through the full loop. No exceptions for domain, complexity, or task type.
+2. Every evaluation uses the full chain: domain resolution → implementer → evaluator → scorecard merge → convergence scripts.
+3. "General" domain is not "optional" domain. No configured runtime does not mean no evaluation.
+4. Implementer success is not evaluation. Self-reported passing is not convergence.
+5. If you are thinking "this is straightforward enough to skip," that thought is the signal to not skip.
+
 ## Step 1: Per-Task Loop
 
 Process each task bean sequentially. For each bean:
@@ -94,7 +104,7 @@ Before dispatching any evaluator, you MUST run:
 Use the script's output to configure evaluators. Do NOT resolve domains manually.
 </HARD-GATE>
 
-Read the task bean's eval block to extract `domains` (e.g., `domains: [frontend, backend]`). If no `domains` are specified in the eval block, default to `"general"`.
+Read the task bean's eval block to extract `domains` (e.g., `domains: [frontend, backend]`). If no `domains` are specified in the eval block, default to `"general"`. **Defaulting to general does not reduce evaluation requirements. The full evaluation chain applies.**
 
 Run:
 ```bash
@@ -138,6 +148,8 @@ The implementer returns one of:
 - **DONE** or **DONE_WITH_CONCERNS** → proceed to evaluation (step 1f)
 - **BLOCKED** → mark bean `needs-attention` with reason, escalate to human, move to next bean
 - **NEEDS_CONTEXT** → provide the requested context and re-dispatch (back to step 1d)
+
+<GATE>Proceed to evaluator dispatch (1f). Implementer DONE is not evaluation.</GATE>
 
 ### 1f. Dispatch Per-Domain, Per-Provider Evaluators
 
@@ -251,6 +263,8 @@ jq -s 'add // []' disagreements-*.json > disagreements.json
 Pass the combined `disagreements.json` to `append-eval-log.sh` in step 1l.
 
 If a domain has only one provider, `merge-scorecards.sh` still runs (single-element array) to ensure consistent scorecard format.
+
+<GATE>Proceed to threshold checks (1j). Do not skip to next task.</GATE>
 
 ### 1h. Merge Cross-Domain Scorecards
 
@@ -396,11 +410,15 @@ Do NOT skip logging. Do NOT write the log entry manually.
 | **PASS_REGRESSED** | Dispatch fresh implementer with regression details (which dimensions in which domains regressed and by how much). → Back to step 1d. |
 | **DISPATCHES_EXCEEDED** | Mark bean `needs-attention`. Escalate to human. Move to next bean. |
 
+<GATE>When all tasks are processed, proceed to Step 2 (Holistic Review). Per-task convergence is not completion.</GATE>
+
 ## Step 2: Holistic Review
 
 After the per-task loop completes, run a holistic review to assess the full system as an integrated whole. This catches cross-domain issues that per-task evaluation cannot see.
 
 **Note:** The user can also trigger holistic review mid-stream (before all tasks finish) for an early integration check. When triggered mid-stream, run steps 2a-2c on the current state, report results, but do NOT enter the remediation loop — report findings and resume the per-task loop.
+
+<GATE>Holistic review is mandatory. Do not skip to Step 3.</GATE>
 
 ### 2a. Pre-flight
 
@@ -566,6 +584,8 @@ After holistic review completes (CONVERGED or escalated):
   Run: scripts/stop-runtimes.sh --state <runtime-state-file>
 Do NOT leave processes running after holistic review.
 </HARD-GATE>
+
+<GATE>Holistic review must have CONVERGED or been escalated before proceeding.</GATE>
 
 ## Step 3: Completion
 
